@@ -1,0 +1,156 @@
+{
+  "name": "ble-tiny-motion-trainer",
+  "productName": "BLE Motion Trainer",
+  "version": "1.0.0",
+  "description": "Train TensorFlow Lite models for Arduino Nano BLE Sense wirelessly",
+  "main": "main.js",
+  "author": {
+    "name": "Your Name",
+    "email": "your.email@example.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/ble-tiny-motion-trainer.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "rebuild": "electron-rebuild",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@abandonware/noble": "^1.9.2-15",
+    "@tensorflow/tfjs-node": "^4.11.0",
+    "archiver": "^6.0.1",
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "electron-rebuild": "^3.2.9",
+    "node-gyp": "^10.0.1"
+  },
+  "build": {
+    "appId": "com.yourname.ble-motion-trainer",
+    "productName": "BLE Motion Trainer",
+    "copyright": "Copyright © 2025 ${author}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "settings-manager.js",
+      "src/**/*",
+      "public/**/*",
+      "!public/profiles/muse.json",
+      "!public/profiles/heart-rate.json",
+      "node_modules/**/*",
+      "!node_modules/**/*.{md,markdown,MD}",
+      "!node_modules/**/LICENSE",
+      "!node_modules/**/README"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "assets/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "icon": "assets/icon.icns",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "icon": "assets/icon.png",
+      "desktop": {
+        "Name": "BLE Motion Trainer",
+        "Comment": "Train TensorFlow Lite models for Arduino",
+        "Categories": "Development;Education;"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "arduino",
+    "ble",
+    "bluetooth",
+    "machine-learning",
+    "tensorflow",
+    "tflite",
+    "imu",
+    "gesture-recognition",
+    "nano-33-ble",
+    "education"
+  ]
+}

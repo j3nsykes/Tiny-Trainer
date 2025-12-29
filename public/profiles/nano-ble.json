@@ -1,0 +1,128 @@
+{
+  "id": "nano-ble",
+  "name": "Arduino Nano 33 BLE Sense",
+  "manufacturer": "Arduino",
+  "type": "ble",
+  "description": "Arduino Nano 33 BLE Sense with built-in IMU (LSM9DS1) for gesture recognition and motion tracking",
+  "connection": {
+    "type": "ble_uart",
+    "service": "6E400001-B5A3-F393-E0A9-E50E24DCCA9E",
+    "characteristics": {
+      "tx": {
+        "uuid": "6E400003-B5A3-F393-E0A9-E50E24DCCA9E",
+        "properties": ["notify"],
+        "description": "Nordic UART TX - Data from Arduino to computer"
+      },
+      "rx": {
+        "uuid": "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
+        "properties": ["write", "writeWithoutResponse"],
+        "description": "Nordic UART RX - Data from computer to Arduino"
+      }
+    }
+  },
+  "sensors": {
+    "imu": {
+      "type": "LSM9DS1",
+      "features": ["accelerometer", "gyroscope", "magnetometer"],
+      "accelerometer": {
+        "range": "±4g",
+        "resolution": "16-bit",
+        "sampleRate": "119 Hz"
+      },
+      "gyroscope": {
+        "range": "±2000 dps",
+        "resolution": "16-bit",
+        "sampleRate": "119 Hz"
+      },
+      "magnetometer": {
+        "range": "±400 µT",
+        "resolution": "16-bit",
+        "sampleRate": "20 Hz"
+      }
+    }
+  },
+  "dataFormat": {
+    "format": "csv",
+    "delimiter": ",",
+    "fields": [
+      {
+        "name": "ax",
+        "type": "float",
+        "unit": "g",
+        "description": "Acceleration X-axis"
+      },
+      {
+        "name": "ay",
+        "type": "float",
+        "unit": "g",
+        "description": "Acceleration Y-axis"
+      },
+      {
+        "name": "az",
+        "type": "float",
+        "unit": "g",
+        "description": "Acceleration Z-axis"
+      },
+      {
+        "name": "gx",
+        "type": "float",
+        "unit": "dps",
+        "description": "Gyroscope X-axis"
+      },
+      {
+        "name": "gy",
+        "type": "float",
+        "unit": "dps",
+        "description": "Gyroscope Y-axis"
+      },
+      {
+        "name": "gz",
+        "type": "float",
+        "unit": "dps",
+        "description": "Gyroscope Z-axis"
+      },
+      {
+        "name": "mx",
+        "type": "float",
+        "unit": "µT",
+        "description": "Magnetometer X-axis"
+      },
+      {
+        "name": "my",
+        "type": "float",
+        "unit": "µT",
+        "description": "Magnetometer Y-axis"
+      },
+      {
+        "name": "mz",
+        "type": "float",
+        "unit": "µT",
+        "description": "Magnetometer Z-axis"
+      }
+    ],
+    "example": "0.12,-0.03,0.98,1.45,-0.32,0.87,15.2,-8.3,42.1",
+    "lineEnding": "\\n"
+  },
+  "recommendedSettings": {
+    "sampleRate": 50,
+    "samplesPerGesture": 100,
+    "gestureWindow": "2 seconds"
+  },
+  "compatibility": {
+    "boards": [
+      "Arduino Nano 33 BLE",
+      "Arduino Nano 33 BLE Sense",
+      "Arduino Nano 33 BLE Sense Rev2"
+    ],
+    "libraries": [
+      "ArduinoBLE",
+      "Arduino_LSM9DS1"
+    ],
+    "minimumVersion": "1.8.0"
+  },
+  "resources": {
+    "documentation": "https://docs.arduino.cc/hardware/nano-33-ble-sense",
+    "library": "https://www.arduino.cc/reference/en/libraries/arduinoble/",
+    "schematic": "https://docs.arduino.cc/resources/schematics/ABX00031-schematics.pdf"
+  }
+}

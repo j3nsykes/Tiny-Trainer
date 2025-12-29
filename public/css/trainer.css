@@ -1,0 +1,518 @@
+/* ============================================================================
+   BLE Motion Trainer - Training Interface Styles
+   Deep Purple Theme - Modern, Compact Layout
+   ============================================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #1a0f2e;
+    color: #e0e0e0;
+    overflow: hidden;
+}
+
+/* Header */
+.trainer-header {
+    background: #0f0a1f;
+    padding: 12px 24px;
+    border-bottom: 1px solid #2a1a4a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    min-height: 50px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.header-left h1 {
+    font-size: 18px;
+    font-weight: 500;
+    color: #fff;
+}
+
+.btn-back {
+    background: #2a1a4a;
+    color: #a0a0d0;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    background: #3a2a5a;
+    color: #fff;
+}
+
+.device-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #0f0a1f;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    border: 1px solid #2a1a4a;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #666;
+}
+
+.status-dot.connected {
+    background: #00ff88;
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.5);
+}
+
+/* Main Layout - Compact */
+.trainer-main {
+    padding: 16px 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+    height: calc(100vh - 50px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Sections - Compact */
+section {
+    background: #0f0a1f;
+    border: 1px solid #2a1a4a;
+    border-radius: 6px;
+    padding: 14px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.section-header h2 {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+}
+
+/* Settings Section - New */
+.settings-section {
+    flex-shrink: 0;
+    padding: 12px 14px;
+}
+
+.settings-controls {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+}
+
+.settings-controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #a0a0d0;
+}
+
+.setting-label {
+    min-width: 140px;
+}
+
+.settings-controls input[type="number"] {
+    width: 70px;
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    color: #e0e0e0;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: border-color 0.2s;
+}
+
+.settings-controls input[type="number"]:focus {
+    outline: none;
+    border-color: #7c4dff;
+}
+
+/* Gestures Section */
+.gestures-section {
+    flex-shrink: 0;
+}
+
+/* Capture Section */
+.capture-section {
+    flex: 1;
+    min-height: 0;
+    max-height: 400px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Buttons */
+.btn-primary {
+    background: #7c4dff;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #6a3de8;
+}
+
+.btn-primary:disabled {
+    background: #2a1a4a;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: #2a1a4a;
+    color: #a0a0d0;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #3a2a5a;
+    color: #fff;
+}
+
+.btn-secondary:disabled {
+    background: #1a0f2e;
+    color: #666;
+    cursor: not-allowed;
+}
+
+.btn-success {
+    background: #00ff88;
+    color: #0f0a1f;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-success:hover {
+    background: #00e077;
+    transform: translateY(-1px);
+}
+
+.btn-success:disabled {
+    background: #2a1a4a;
+    color: #666;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Preview Canvas - Compact */
+.preview-container {
+    position: relative;
+    background: #0f0a1f;
+    border: 1px solid #2a1a4a;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    flex: 1;
+    min-height: 240px;
+    max-height: 280px;
+    height: 280px;
+}
+
+#preview-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.preview-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 10, 31, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+.preview-overlay.hidden {
+    opacity: 0;
+}
+
+.preview-message {
+    color: #a0a0d0;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Capture Status - Compact */
+.capture-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.capture-status-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.capture-status-compact .status-text {
+    font-size: 12px;
+    min-width: 60px;
+}
+
+.capture-status-compact .progress-bar {
+    width: 150px;
+    height: 4px;
+}
+
+.capture-status-compact .frame-count {
+    font-size: 10px;
+    min-width: 85px;
+}
+
+.status-text {
+    font-size: 13px;
+    color: #a0a0d0;
+    min-width: 80px;
+}
+
+.status-text.recording {
+    color: #ff4081;
+    font-weight: 600;
+}
+
+.status-text.ready {
+    color: #00ff88;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 6px;
+    background: #1a0f2e;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c4dff, #00ff88);
+    transition: width 0.1s linear;
+}
+
+.frame-count {
+    font-size: 11px;
+    color: #666;
+    font-family: 'Courier New', monospace;
+    min-width: 100px;
+    text-align: right;
+}
+
+/* Actions Section - Compact */
+.actions-section {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.training-info {
+    flex: 1;
+    text-align: right;
+}
+
+.training-info p {
+    font-size: 13px;
+    color: #a0a0d0;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 10, 31, 0.9);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: #0f0a1f;
+    border: 1px solid #2a1a4a;
+    border-radius: 6px;
+    padding: 0;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a1a4a;
+}
+
+.modal-header h3 {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #a0a0d0;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.close-btn:hover {
+    color: #fff;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body label {
+    display: block;
+    font-size: 13px;
+    color: #a0a0d0;
+    margin-bottom: 8px;
+}
+
+.modal-body input[type="text"] {
+    width: 100%;
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    color: #e0e0e0;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.modal-body input[type="text"]:focus {
+    outline: none;
+    border-color: #7c4dff;
+}
+
+.modal-body .hint {
+    font-size: 12px;
+    color: #666;
+}
+
+.modal-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #2a1a4a;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.empty-state p {
+    font-size: 13px;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a0f2e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #2a1a4a;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3a2a5a;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .trainer-header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .settings-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .actions-section {
+        flex-direction: column;
+    }
+
+    .training-info {
+        text-align: left;
+    }
+}

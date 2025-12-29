@@ -1,0 +1,258 @@
+/* ============================================================================
+   Gesture Cards Styling - Deep Purple Theme
+   ============================================================================ */
+
+.gestures-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.gesture-card {
+    background: #1a0f2e;
+    border: 2px solid #2a1a4a;
+    border-radius: 6px;
+    padding: 14px;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+}
+
+.gesture-card:hover {
+    border-color: #3a2a5a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(124, 77, 255, 0.2);
+}
+
+.gesture-card.selected {
+    border-color: #7c4dff;
+    background: #1f1438;
+}
+
+.gesture-card.recording {
+    border-color: #ff4081;
+    background: #2a1525;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(255, 64, 129, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(255, 64, 129, 0);
+    }
+}
+
+/* Gesture Header */
+.gesture-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.gesture-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    word-break: break-word;
+}
+
+.gesture-menu {
+    position: relative;
+}
+
+.menu-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.menu-btn:hover {
+    color: #a0a0d0;
+}
+
+.menu-dropdown {
+    position: absolute;
+    right: 0;
+    top: 30px;
+    background: #0f0a1f;
+    border: 1px solid #2a1a4a;
+    border-radius: 4px;
+    padding: 4px 0;
+    min-width: 150px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    display: none;
+}
+
+.menu-dropdown.active {
+    display: block;
+}
+
+.menu-dropdown button {
+    width: 100%;
+    background: none;
+    border: none;
+    color: #a0a0d0;
+    padding: 8px 14px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.menu-dropdown button:hover {
+    background: #1a0f2e;
+    color: #fff;
+}
+
+.menu-dropdown button.danger {
+    color: #ff4081;
+}
+
+.menu-dropdown button.danger:hover {
+    background: rgba(255, 64, 129, 0.1);
+}
+
+/* Gesture Info */
+.gesture-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-label {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #7c4dff;
+}
+
+.info-value.complete {
+    color: #00ff88;
+}
+
+/* Sample Progress */
+.sample-progress {
+    margin-bottom: 12px;
+}
+
+.progress-label {
+    font-size: 11px;
+    color: #a0a0d0;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.progress-bar-gesture {
+    height: 6px;
+    background: #0f0a1f;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill-gesture {
+    height: 100%;
+    background: linear-gradient(90deg, #7c4dff, #00ff88);
+    transition: width 0.3s ease;
+}
+
+/* Gesture Actions */
+.gesture-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.gesture-actions button {
+    flex: 1;
+    background: #2a1a4a;
+    color: #a0a0d0;
+    border: none;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.gesture-actions button:hover {
+    background: #3a2a5a;
+    color: #fff;
+}
+
+.gesture-actions button.recording {
+    background: #ff4081;
+    color: white;
+}
+
+.gesture-actions button.recording:hover {
+    background: #e63771;
+}
+
+.gesture-actions button:disabled {
+    background: #1a0f2e;
+    color: #666;
+    cursor: not-allowed;
+}
+
+/* Badge */
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-complete {
+    background: rgba(0, 255, 136, 0.2);
+    color: #00ff88;
+}
+
+.badge-incomplete {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.badge-recording {
+    background: rgba(255, 64, 129, 0.2);
+    color: #ff4081;
+}
+
+/* Empty State in Grid */
+.gestures-grid .empty-state {
+    grid-column: 1 / -1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .gestures-grid {
+        grid-template-columns: 1fr;
+    }
+}

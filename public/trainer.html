@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLE Motion Trainer - Training</title>
+    <link rel="stylesheet" href="css/trainer.css">
+    <link rel="stylesheet" href="css/gestures.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="trainer-header">
+        <div class="header-left">
+            <button class="btn-back" id="back-btn">← Back to Connections</button>
+            <h1>Gesture Training</h1>
+        </div>
+        <div class="header-right">
+            <div class="device-indicator">
+                <span class="status-dot" id="device-status-dot"></span>
+                <span id="device-name">Not Connected</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Training Area -->
+    <main class="trainer-main">
+        
+        <!-- Settings Section (moved to top) -->
+        <section class="settings-section">
+            <div class="section-header">
+                <h2>Training Settings</h2>
+            </div>
+            <div class="settings-controls">
+                <label>
+                    <span class="setting-label">Samples per gesture:</span>
+                    <input type="number" id="samples-per-gesture" value="20" min="5" max="50">
+                </label>
+                <label>
+                    <span class="setting-label">Frames per sample:</span>
+                    <input type="number" id="frames-per-sample" value="100" min="50" max="200">
+                </label>
+            </div>
+        </section>
+
+        <!-- Gesture List Section -->
+        <section class="gestures-section">
+            <div class="section-header">
+                <h2>Gestures</h2>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <!-- Capture Status (Compact) -->
+                    <div class="capture-status-compact" id="capture-status">
+                        <div class="status-text" id="status-text">Ready</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                        </div>
+                        <div class="frame-count" id="frame-count">0 / 100</div>
+                    </div>
+                    <button class="btn-primary" id="add-gesture-btn">+ Add Gesture</button>
+                </div>
+            </div>
+            
+            <div class="gestures-grid" id="gestures-grid">
+                <!-- Gesture cards will be added here dynamically -->
+                <div class="empty-state" id="gestures-empty-state">
+                    <p>No gestures yet. Click "+ Add Gesture" to get started.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sample Capture Section -->
+        <section class="capture-section">
+            <div class="section-header">
+                <h2>Live Data Preview</h2>
+            </div>
+
+            <!-- Live Preview Canvas - Smaller -->
+            <div class="preview-container">
+                <canvas id="preview-canvas" width="800" height="280"></canvas>
+                <div class="preview-overlay" id="preview-overlay">
+                    <div class="preview-message" id="preview-message">
+                        Select a gesture and click Record to begin
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Training Actions -->
+        <section class="actions-section">
+            <button class="btn-secondary" id="export-data-btn" disabled>
+                📥 Export Training Data
+            </button>
+            <button class="btn-success" id="train-model-btn" disabled>
+                🚀 Train Model
+            </button>
+            <div class="training-info">
+                <p id="training-info-text">Add at least 2 gestures with samples to train</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Add Gesture Modal -->
+    <div class="modal" id="add-gesture-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Gesture</h3>
+                <button class="close-btn" id="close-gesture-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>
+                    Gesture Name
+                    <input type="text" id="gesture-name-input" placeholder="e.g., wave, punch, twist" autofocus>
+                </label>
+                <p class="hint">Choose a descriptive name for the gesture you want to recognize.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-gesture-btn">Cancel</button>
+                <button class="btn-primary" id="create-gesture-btn">Create Gesture</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Gesture Modal -->
+    <div class="modal" id="rename-gesture-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Rename Gesture</h3>
+                <button class="close-btn" id="close-rename-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>
+                    New Name
+                    <input type="text" id="rename-gesture-input" placeholder="Enter new name">
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-rename-btn">Cancel</button>
+                <button class="btn-primary" id="save-rename-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="ble-bridge.js"></script>
+    <script src="js/ml/gesture-manager.js"></script>
+    <script src="js/ml/data-collector.js"></script>
+    <script src="js/ml/visualizer.js"></script>
+    <script src="js/trainer-ui.js"></script>
+</body>
+</html>
