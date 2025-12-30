@@ -15,20 +15,21 @@ class DataProcessor {
   // Prepare Training Data
   // ========================================================================
 
-  prepareTrainingData(gestureManager) {
+  prepareTrainingData(gestureManager, dataType = 'imu') {
     const gestures = gestureManager.getAllGestures();
-    
+
     if (gestures.length < 2) {
-      throw new Error('Need at least 2 gestures to train');
+      throw new Error('Need at least 2 gestures/colors to train');
     }
 
     console.log('📊 Preparing training data...');
-    console.log(`   Gestures: ${gestures.length}`);
-    
+    console.log(`   Data type: ${dataType}`);
+    console.log(`   Classes: ${gestures.length}`);
+
     // Collect all samples and labels
     const allSamples = [];
     const allLabels = [];
-    
+
     gestures.forEach((gesture, gestureIndex) => {
       gesture.samples.forEach(sample => {
         allSamples.push(sample.data);
@@ -37,16 +38,16 @@ class DataProcessor {
     });
 
     console.log(`   Total samples: ${allSamples.length}`);
-    
-    // Normalize data
-    const normalizedSamples = this.normalizeData(allSamples);
-    
+
+    // Normalize data based on type
+    const normalizedSamples = this.normalizeData(allSamples, dataType);
+
     // Split into train/validation
     const split = this.splitData(normalizedSamples, allLabels);
-    
+
     console.log(`   Training samples: ${split.trainX.length}`);
     console.log(`   Validation samples: ${split.valX.length}`);
-    
+
     return {
       trainX: split.trainX,
       trainY: split.trainY,
@@ -55,6 +56,7 @@ class DataProcessor {
       numClasses: gestures.length,
       labels: gestures.map(g => g.name),
       inputShape: [normalizedSamples[0].length],
+      dataType: dataType,
     };
   }
 
@@ -62,19 +64,21 @@ class DataProcessor {
   // Data Normalization
   // ========================================================================
 
-  normalizeData(samples) {
+  normalizeData(samples, dataType = 'imu') {
     console.log('🔧 Normalizing data...');
-    
-    // IMU data from Arduino is already normalized to [-1, 1]
-    // But we'll ensure consistent range
-    
+
     const normalized = samples.map(sample => {
       return sample.map(value => {
-        // Clamp to [-1, 1]
-        return Math.max(-1, Math.min(1, value));
+        if (dataType === 'color') {
+          // Color data: already in [0, 1] range from sensor
+          return Math.max(0, Math.min(1, value));
+        } else {
+          // IMU data: normalize to [-1, 1] range
+          return Math.max(-1, Math.min(1, value));
+        }
       });
     });
-    
+
     console.log('✅ Data normalized');
     return normalized;
   }

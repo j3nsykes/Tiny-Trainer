@@ -73,10 +73,11 @@ class MLTrainer {
 
     try {
       console.log('🚀 Starting training...');
-      
-      // Prepare data
-      this.trainingData = this.dataProcessor.prepareTrainingData(gestureManager);
-      
+
+      // Prepare data (pass dataType from config, defaults to 'imu')
+      const dataType = config.dataType || 'imu';
+      this.trainingData = this.dataProcessor.prepareTrainingData(gestureManager, dataType);
+
       // Validate data
       const dataValidation = this.dataProcessor.validateData(this.trainingData);
       if (!dataValidation.valid) {

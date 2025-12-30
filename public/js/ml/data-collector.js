@@ -67,13 +67,16 @@ class DataCollector {
 
   processIMUData(data) {
     // Parse CSV format: "ax,ay,az,gx,gy,gz,mx,my,mz" (9-axis)
+    // OR "ax,ay,az,gx,gy,gz,mx,my,mz,r,g,b,c,p" (14 values - all sensors)
     const values = data.split(',').map(v => parseFloat(v.trim()));
-    
-    if (values.length !== 9) {
-      // Invalid data format (should be 9 values for 9-axis)
+
+    // Accept either 9 values (IMU only) or 14 values (all sensors)
+    if (values.length !== 9 && values.length !== 14) {
+      // Invalid data format
       return;
     }
 
+    // Extract IMU values (first 9 values regardless of mode)
     const [ax, ay, az, gx, gy, gz, mx, my, mz] = values;
     
     // Update rolling buffer for testing (always, not just when capturing)

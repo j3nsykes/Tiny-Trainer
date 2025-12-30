@@ -133,10 +133,18 @@ class GestureManager {
       throw new Error('Gesture not found');
     }
 
-    // Validate sample data
-    const expectedLength = this.framesPerSample * 9; // 9-axis IMU (ax, ay, az, gx, gy, gz, mx, my, mz)
-    if (sampleData.length !== expectedLength) {
-      throw new Error(`Invalid sample length. Expected ${expectedLength}, got ${sampleData.length}`);
+    // Validate sample data - accept both IMU and Color samples
+    // IMU: 100 frames × 9 axes = 900
+    // Color: 50 frames × 5 channels = 250, or 100 frames × 5 channels = 500
+    const validLengths = [
+      this.framesPerSample * 9,  // IMU gestures (900)
+      50 * 5,                      // Color samples 50 frames (250)
+      100 * 5,                     // Color samples 100 frames (500)
+    ];
+
+    if (!validLengths.includes(sampleData.length)) {
+      console.warn(`⚠️ Unexpected sample length: ${sampleData.length}. Expected ${validLengths.join(', ')}`);
+      // Don't throw - allow flexible sample sizes for different sensor types
     }
 
     gesture.samples.push({

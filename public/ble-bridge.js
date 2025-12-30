@@ -126,16 +126,37 @@ class BLEBridge {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deviceId, data })
             });
-            
+
             if (!response.ok) {
                 throw new Error('Send failed');
             }
-            
+
             return true;
         } catch (error) {
             console.error('Send error:', error);
             return false;
         }
+    }
+
+    // Helper method to send commands
+    async sendCommand(command, deviceId = null) {
+        // If no deviceId specified, try to get it from global context
+        if (!deviceId && typeof connectedDeviceId !== 'undefined') {
+            deviceId = connectedDeviceId;
+        }
+
+        if (!deviceId) {
+            console.warn('⚠️ No device ID specified for command:', command);
+            return false;
+        }
+
+        console.log(`📤 Sending BLE command: ${command} to ${deviceId}`);
+        return await this.send(deviceId, command);
+    }
+
+    // Check if connected
+    isConnected() {
+        return this.socket && this.socket.connected;
     }
     
     // ========================================================================

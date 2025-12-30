@@ -13,7 +13,7 @@
     <header class="trainer-header">
         <div class="header-left">
             <button class="btn-back" id="back-btn">← Back to Connections</button>
-            <h1>Gesture Training</h1>
+            <h1>Tiny Motion Trainer</h1>
         </div>
         <div class="header-right">
             <div class="device-indicator">
@@ -23,9 +23,28 @@
         </div>
     </header>
 
+    <!-- Tab Navigation -->
+    <nav class="tab-navigation">
+        <button class="tab-btn active" data-tab="imu">
+            <span class="tab-icon">📱</span>
+            <span class="tab-label">IMU Gestures</span>
+        </button>
+        <button class="tab-btn" data-tab="color">
+            <span class="tab-icon">🎨</span>
+            <span class="tab-label">Color Recognition</span>
+        </button>
+        <button class="tab-btn" data-tab="audio">
+            <span class="tab-icon">🎤</span>
+            <span class="tab-label">Sound Classification</span>
+        </button>
+    </nav>
+
     <!-- Main Training Area -->
     <main class="trainer-main">
-        
+
+        <!-- IMU Gestures Tab Panel -->
+        <div class="tab-panel active" id="imu-panel">
+
         <!-- Settings Section (moved to top) -->
         <section class="settings-section">
             <div class="section-header">
@@ -104,6 +123,196 @@
         <!-- Hidden file input for loading data -->
         <input type="file" id="load-data-input" accept=".json" style="display: none;">
 
+        </div>
+        <!-- End IMU Panel -->
+
+        <!-- Color Recognition Tab Panel -->
+        <div class="tab-panel" id="color-panel">
+            <section class="settings-section">
+                <div class="section-header">
+                    <h2>Color Training Settings</h2>
+                </div>
+                <div class="settings-controls">
+                    <label>
+                        <span class="setting-label">Samples per color:</span>
+                        <input type="number" id="color-samples-per-class" value="20" min="5" max="50">
+                    </label>
+                    <label>
+                        <span class="setting-label">Readings per sample:</span>
+                        <input type="number" id="color-frames-per-sample" value="50" min="25" max="100">
+                    </label>
+                </div>
+            </section>
+
+            <section class="gestures-section">
+                <div class="section-header">
+                    <h2>Colors</h2>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="capture-status-compact" id="color-capture-status">
+                            <div class="status-text" id="color-status-text">Ready</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="color-progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="frame-count" id="color-frame-count">0 / 50</div>
+                        </div>
+                        <button class="btn-primary" id="add-color-btn">+ Add Color</button>
+                    </div>
+                </div>
+
+                <div class="gestures-grid" id="colors-grid">
+                    <div class="empty-state" id="colors-empty-state">
+                        <p>No colors yet. Click "+ Add Color" to get started.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="capture-section">
+                <div class="section-header">
+                    <h2>Live Color Preview</h2>
+                </div>
+                <div class="preview-container">
+                    <div class="color-preview" id="color-preview">
+                        <div class="color-swatch" id="color-swatch" style="background-color: #333;"></div>
+                        <div class="color-values" id="color-values">
+                            <div class="color-value-row">
+                                <span class="color-label">R:</span>
+                                <span class="color-bar-container">
+                                    <span class="color-bar red" id="color-bar-r" style="width: 0%"></span>
+                                </span>
+                                <span class="color-number" id="color-val-r">0.00</span>
+                            </div>
+                            <div class="color-value-row">
+                                <span class="color-label">G:</span>
+                                <span class="color-bar-container">
+                                    <span class="color-bar green" id="color-bar-g" style="width: 0%"></span>
+                                </span>
+                                <span class="color-number" id="color-val-g">0.00</span>
+                            </div>
+                            <div class="color-value-row">
+                                <span class="color-label">B:</span>
+                                <span class="color-bar-container">
+                                    <span class="color-bar blue" id="color-bar-b" style="width: 0%"></span>
+                                </span>
+                                <span class="color-number" id="color-val-b">0.00</span>
+                            </div>
+                            <div class="color-value-row">
+                                <span class="color-label">Clear:</span>
+                                <span class="color-bar-container">
+                                    <span class="color-bar white" id="color-bar-c" style="width: 0%"></span>
+                                </span>
+                                <span class="color-number" id="color-val-c">0.00</span>
+                            </div>
+                            <div class="color-value-row">
+                                <span class="color-label">Proximity:</span>
+                                <span class="color-bar-container">
+                                    <span class="color-bar proximity" id="color-bar-p" style="width: 0%"></span>
+                                </span>
+                                <span class="color-number" id="color-val-p">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="preview-overlay" id="color-preview-overlay" style="display: none;">
+                        <div class="preview-message" id="color-preview-message">
+                            Select a color and click Record to begin
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="actions-section">
+                <button class="btn-secondary" id="load-color-data-btn" title="Load previously exported color training data (.json)">
+                    📂 Load Training Data
+                </button>
+                <button class="btn-secondary" id="export-color-data-btn" disabled>
+                    📥 Export Training Data
+                </button>
+                <button class="btn-success" id="train-color-model-btn" disabled>
+                    🚀 Train Model
+                </button>
+                <div class="training-info">
+                    <p id="color-training-info-text">Add at least 2 colors with samples to train</p>
+                </div>
+            </section>
+
+            <input type="file" id="load-color-data-input" accept=".json" style="display: none;">
+        </div>
+        <!-- End Color Panel -->
+
+        <!-- Sound Classification Tab Panel -->
+        <div class="tab-panel" id="audio-panel">
+            <section class="settings-section">
+                <div class="section-header">
+                    <h2>Audio Training Settings</h2>
+                </div>
+                <div class="settings-controls">
+                    <label>
+                        <span class="setting-label">Samples per sound:</span>
+                        <input type="number" id="audio-samples-per-class" value="20" min="5" max="50">
+                    </label>
+                    <label>
+                        <span class="setting-label">Duration (seconds):</span>
+                        <input type="number" id="audio-duration" value="1" min="0.5" max="3" step="0.5">
+                    </label>
+                </div>
+            </section>
+
+            <section class="gestures-section">
+                <div class="section-header">
+                    <h2>Sounds</h2>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="capture-status-compact" id="audio-capture-status">
+                            <div class="status-text" id="audio-status-text">Ready</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="audio-progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="frame-count" id="audio-frame-count">0 / 20</div>
+                        </div>
+                        <button class="btn-primary" id="add-sound-btn">+ Add Sound</button>
+                    </div>
+                </div>
+
+                <div class="gestures-grid" id="sounds-grid">
+                    <div class="empty-state" id="sounds-empty-state">
+                        <p>No sounds yet. Click "+ Add Sound" to get started.</p>
+                        <p class="hint">🎤 This will use your laptop's microphone for training</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="capture-section">
+                <div class="section-header">
+                    <h2>Live Audio Preview</h2>
+                </div>
+                <div class="preview-container">
+                    <canvas id="audio-preview-canvas" width="800" height="280"></canvas>
+                    <div class="preview-overlay" id="audio-preview-overlay">
+                        <div class="preview-message" id="audio-preview-message">
+                            🎤 Click "Enable Microphone" to start<br>
+                            <button class="btn-primary" id="enable-mic-btn" style="margin-top: 16px;">Enable Microphone</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="actions-section">
+                <button class="btn-secondary" id="load-audio-data-btn" title="Load previously exported audio training data (.json)">
+                    📂 Load Training Data
+                </button>
+                <button class="btn-secondary" id="export-audio-data-btn" disabled>
+                    📥 Export Training Data
+                </button>
+                <button class="btn-success" id="train-audio-model-btn" disabled>
+                    🚀 Train Model
+                </button>
+                <div class="training-info">
+                    <p id="audio-training-info-text">Add at least 2 sounds with samples to train</p>
+                </div>
+            </section>
+
+            <input type="file" id="load-audio-data-input" accept=".json" style="display: none;">
+        </div>
+        <!-- End Audio Panel -->
+
     </main>
 
     <!-- Add Gesture Modal -->
@@ -143,6 +352,47 @@
             <div class="modal-footer">
                 <button class="btn-secondary" id="cancel-rename-btn">Cancel</button>
                 <button class="btn-primary" id="save-rename-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Color Modal -->
+    <div class="modal" id="add-color-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Color</h3>
+                <button class="close-btn" id="close-color-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>
+                    Color Name
+                    <input type="text" id="color-name-input" placeholder="e.g., red apple, orange, banana" autofocus>
+                </label>
+                <p class="hint">Choose a descriptive name for the color/object you want to recognize.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-color-btn">Cancel</button>
+                <button class="btn-primary" id="create-color-btn">Create Color</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Color Modal -->
+    <div class="modal" id="rename-color-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Rename Color</h3>
+                <button class="close-btn" id="close-rename-color-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>
+                    New Name
+                    <input type="text" id="rename-color-input" placeholder="Enter new name">
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-rename-color-btn">Cancel</button>
+                <button class="btn-primary" id="save-rename-color-btn">Save</button>
             </div>
         </div>
     </div>
@@ -256,9 +506,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="js/toast.js"></script>
     <script src="ble-bridge.js"></script>
+    <script src="js/tab-manager.js"></script>
     <script src="js/ml/gesture-manager.js"></script>
     <script src="js/ml/data-collector.js"></script>
+    <script src="js/ml/color-data-collector.js"></script>
     <script src="js/ml/visualizer.js"></script>
+    <script src="js/color-visualizer.js"></script>
     <script src="js/ml/data-processor.js"></script>
     <script src="js/ml/model-builder.js"></script>
     <script src="js/ml/ml-trainer.js"></script>
