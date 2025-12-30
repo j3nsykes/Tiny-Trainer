@@ -9,6 +9,12 @@ let dataCollector;
 let visualizer;
 let bridge;
 
+// ML Training components
+let dataProcessor;
+let modelBuilder;
+let mlTrainer;
+let trainingUI;
+
 // Device connection
 let connectedDeviceId = null;
 
@@ -31,6 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
   bridge = new BLEBridge();
   dataCollector = new DataCollector(bridge, gestureManager);
   visualizer = new IMUVisualizer('preview-canvas');
+  
+  // Initialize ML components
+  dataProcessor = new DataProcessor();
+  modelBuilder = new ModelBuilder();
+  mlTrainer = new MLTrainer(dataProcessor, modelBuilder);
+  trainingUI = new TrainingUI(mlTrainer);
   
   // Setup event listeners
   setupEventListeners();
@@ -89,8 +101,23 @@ function setupEventListeners() {
   });
   
   // Training actions
+  document.getElementById('load-data-btn').addEventListener('click', loadTrainingData);
   document.getElementById('export-data-btn').addEventListener('click', exportTrainingData);
-  document.getElementById('train-model-btn').addEventListener('click', trainModel);
+  document.getElementById('train-model-btn').addEventListener('click', startTraining);
+  
+  // Hidden file input
+  document.getElementById('load-data-input').addEventListener('change', handleLoadDataFile);
+  
+  // Training modal
+  document.getElementById('close-training-modal-x').addEventListener('click', closeTrainingModal);
+  document.getElementById('close-training-btn').addEventListener('click', closeTrainingModal);
+  document.getElementById('stop-training-btn').addEventListener('click', stopTraining);
+  document.getElementById('export-model-btn').addEventListener('click', exportModel);
+  document.getElementById('download-model-btn').addEventListener('click', downloadModelForArduino);
+  
+  // Testing controls
+  document.getElementById('start-testing-btn').addEventListener('click', startTesting);
+  document.getElementById('stop-testing-btn').addEventListener('click', stopTesting);
   
   // Close modals on background click
   document.getElementById('add-gesture-modal').addEventListener('click', (e) => {
@@ -109,6 +136,15 @@ function setupGestureManagerListeners() {
   
   gestureManager.on('gestureRemoved', (gesture) => {
     removeGestureCard(gesture.name);
+    updateTrainingInfo();
+  });
+  
+  gestureManager.on('allGesturesCleared', () => {
+    // Clear all gesture cards from UI
+    const container = document.getElementById('gestures-grid');
+    if (container) {
+      container.innerHTML = '';
+    }
     updateTrainingInfo();
   });
   
@@ -285,6 +321,21 @@ function updateGestureCard(name) {
 function updateGestureCards() {
   gestureManager.getAllGestures().forEach(g => {
     updateGestureCard(g.name);
+  });
+}
+
+function rebuildGestureCards() {
+  // Clear existing cards
+  const container = document.getElementById('gestures-grid');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  // Add card for each gesture
+  gestureManager.getAllGestures().forEach(gesture => {
+    addGestureCard(gesture);
+    // Update card with current sample count
+    updateGestureCard(gesture.name);
   });
 }
 
@@ -510,6 +561,107 @@ function updateTrainingInfo() {
 // Training Actions
 // ============================================================================
 
+// ============================================================================
+// Data Import/Export
+// ============================================================================
+
+function loadTrainingData() {
+  // Trigger the hidden file input
+  document.getElementById('load-data-input').click();
+}
+
+function handleLoadDataFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    try {
+      const jsonData = JSON.parse(e.target.result);
+      
+      // Validate JSON structure
+      if (!jsonData.gestures || !Array.isArray(jsonData.gestures)) {
+        throw new Error('Invalid training data format: missing gestures array');
+      }
+      
+      // Clear existing gestures
+      gestureManager.clearAll();
+      
+      // Load gestures and samples
+      let totalSamples = 0;
+      jsonData.gestures.forEach(gesture => {
+        // Add gesture
+        gestureManager.addGesture(gesture.name);
+        
+        // Add samples
+        if (gesture.samples && Array.isArray(gesture.samples)) {
+          gesture.samples.forEach(sampleItem => {
+            // Handle different formats:
+            // Format 1: {data: [...], timestamp: ...} (from gestureManager.exportJSON)
+            // Format 2: [...] (raw array)
+            let sampleData;
+            
+            if (Array.isArray(sampleItem)) {
+              // Format 2: Raw array
+              sampleData = sampleItem;
+            } else if (sampleItem && sampleItem.data && Array.isArray(sampleItem.data)) {
+              // Format 1: Object with data field
+              sampleData = sampleItem.data;
+            } else {
+              console.warn('⚠️ Skipping invalid sample:', sampleItem);
+              return; // Skip this sample
+            }
+            
+            // Validate sample length (should be 900 for 100 frames × 9 axes)
+            if (sampleData.length !== 900) {
+              console.warn(`⚠️ Skipping sample with invalid length: ${sampleData.length} (expected 900)`);
+              return;
+            }
+            
+            // Add sample to gesture manager
+            // gestureManager.addSample expects just the data array
+            gestureManager.addSample(gesture.name, sampleData);
+            totalSamples++;
+          });
+        }
+      });
+      
+      // Refresh UI
+      rebuildGestureCards();
+      updateTrainingInfo();
+      
+      // Show success toast
+      toast.success(`Loaded ${jsonData.gestures.length} gestures with ${totalSamples} samples`, {
+        title: 'Training Data Loaded',
+        duration: 4000
+      });
+      
+      console.log(`✅ Loaded training data: ${jsonData.gestures.length} gestures, ${totalSamples} samples`);
+      
+    } catch (error) {
+      console.error('❌ Failed to load training data:', error);
+      toast.error(`Failed to load: ${error.message}`, {
+        title: 'Load Error',
+        duration: 5000
+      });
+      alert(`Failed to load training data: ${error.message}`);
+    }
+    
+    // Reset file input
+    event.target.value = '';
+  };
+  
+  reader.onerror = function() {
+    toast.error('Failed to read file', {
+      title: 'File Error',
+      duration: 5000
+    });
+  };
+  
+  reader.readAsText(file);
+}
+
 function exportTrainingData() {
   const data = gestureManager.exportJSON();
   const blob = new Blob([data], { type: 'application/json' });
@@ -520,13 +672,168 @@ function exportTrainingData() {
   a.download = `training-data-${Date.now()}.json`;
   a.click();
   
+  // Show toast notification
+  toast.success('Training data exported successfully', {
+    title: 'Downloaded',
+    duration: 3000
+  });
+  
   showNotification('✅ Training data exported', 'success');
 }
 
+// ============================================================================
+// Training Actions
+// ============================================================================
+
+async function startTraining() {
+  try {
+    console.log('🚀 Starting training...');
+    
+    // Validate we have enough data
+    if (!gestureManager.isReadyForTraining()) {
+      alert('Not enough training data. Need at least 2 gestures with sufficient samples.');
+      return;
+    }
+    
+    // Get training configuration (use balanced preset)
+    const config = {
+      preset: 'balanced',
+      epochs: 50,
+      batchSize: 16,
+      learningRate: 0.001,
+    };
+    
+    // Start training
+    await mlTrainer.train(gestureManager, config);
+    
+  } catch (error) {
+    console.error('❌ Training failed:', error);
+    alert(`Training failed: ${error.message}`);
+  }
+}
+
+function stopTraining() {
+  mlTrainer.stopTraining();
+}
+
+function closeTrainingModal() {
+  const modal = document.getElementById('training-modal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+async function exportModel() {
+  try {
+    const modelJSON = await mlTrainer.exportModel();
+    const blob = new Blob([modelJSON], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gesture-model-${Date.now()}.json`;
+    a.click();
+    
+    // Show toast notification
+    toast.success('Model exported as JSON', {
+      title: 'Downloaded',
+      duration: 3000
+    });
+    
+    showNotification('✅ Model exported', 'success');
+  } catch (error) {
+    console.error('❌ Export failed:', error);
+    toast.error(`Export failed: ${error.message}`, {
+      title: 'Export Error',
+      duration: 5000
+    });
+    alert(`Export failed: ${error.message}`);
+  }
+}
+
+async function downloadModelForArduino() {
+  if (!mlTrainer || !mlTrainer.model) {
+    toast.error('No trained model available. Train a model first.', {
+      title: 'Download Error',
+      duration: 4000
+    });
+    return;
+  }
+  
+  try {
+    console.log('🚀 Generating Arduino package...');
+    
+    // Show loading toast
+    toast.info('Generating Arduino code...', {
+      title: 'Arduino Download',
+      duration: 3000
+    });
+    
+    // Get gesture labels
+    const labels = gestureManager.getAllGestures().map(g => g.name);
+    
+    // Create Arduino generator
+    const generator = new ArduinoModelGenerator();
+    
+    // Convert model (this prepares the model data)
+    await generator.convertToTFLite(mlTrainer.model, labels);
+    
+    // Generate Arduino code files
+    const files = generator.generateArduinoCode();
+    
+    // Create ZIP file
+    const zip = new JSZip();
+    
+    // Add all files to ZIP
+    for (const [filename, content] of Object.entries(files)) {
+      zip.file(filename, content);
+    }
+    
+    // Generate ZIP blob
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    // Download ZIP file
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gesture_model_${Date.now()}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Downloaded Arduino package with ${Object.keys(files).length} files`, {
+      title: 'Arduino Package Ready',
+      duration: 5000
+    });
+    
+    console.log('✅ Arduino package downloaded as ZIP');
+    
+  } catch (error) {
+    console.error('❌ Arduino download failed:', error);
+    toast.error(`Failed to generate Arduino package: ${error.message}`, {
+      title: 'Download Error',
+      duration: 5000
+    });
+  }
+}
+
+// Helper function to download text files
+function downloadTextFile(content, filename) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function trainModel() {
-  // This will be implemented in Phase 3
-  alert('Model training will be implemented in Phase 3!\n\nFor now, you can:\n- Export training data\n- Use it with TensorFlow.js\n- Train custom models');
-  showNotification('⚠️ Training not yet implemented', 'warning');
+  // This is now replaced by startTraining()
+  startTraining();
 }
 
 // ============================================================================
@@ -538,6 +845,103 @@ function showNotification(message, type = 'info') {
   
   // Could add toast notifications here
   // For now, just console log
+}
+
+// ============================================================================
+// Testing Functionality
+// ============================================================================
+
+let isTestingActive = false;
+let testingInterval = null;
+let testingBuffer = [];
+const TESTING_BUFFER_SIZE = 100; // Match training frame size
+
+function startTesting() {
+  if (isTestingActive) return;
+  
+  console.log('🧪 Starting testing mode...');
+  isTestingActive = true;
+  testingBuffer = [];
+  
+  // Update UI
+  document.getElementById('start-testing-btn').style.display = 'none';
+  document.getElementById('stop-testing-btn').style.display = 'block';
+  document.getElementById('testing-status').textContent = 'Testing active - perform gestures!';
+  document.getElementById('testing-status').classList.add('active');
+  
+  // Start collecting data and running predictions
+  testingInterval = setInterval(runPrediction, 50); // 20Hz prediction rate (faster response)
+  
+  toast.info('Testing mode active - perform gestures!', {
+    title: 'Testing Started',
+    duration: 3000
+  });
+}
+
+function stopTesting() {
+  if (!isTestingActive) return;
+  
+  console.log('🛑 Stopping testing mode...');
+  isTestingActive = false;
+  
+  if (testingInterval) {
+    clearInterval(testingInterval);
+    testingInterval = null;
+  }
+  
+  // Update UI
+  document.getElementById('start-testing-btn').style.display = 'block';
+  document.getElementById('stop-testing-btn').style.display = 'none';
+  document.getElementById('testing-status').textContent = 'Testing stopped';
+  document.getElementById('testing-status').classList.remove('active');
+  
+  // Reset display
+  document.getElementById('predicted-gesture').textContent = '—';
+  document.getElementById('prediction-confidence').textContent = '—';
+}
+
+async function runPrediction() {
+  if (!isTestingActive || !mlTrainer.model) return;
+  
+  // Get current IMU data from data collector
+  const currentData = dataCollector.getCurrentBuffer();
+  
+  if (!currentData || currentData.length === 0) {
+    return; // No data yet
+  }
+  
+  // Use current buffer directly (already maintains 100 frames)
+  // Minimum 60 frames required for reasonable prediction (reduced from 100)
+  const minFrames = 60;
+  const minValues = minFrames * 9; // 540 values
+  
+  if (currentData.length < minValues) {
+    return; // Not enough data yet
+  }
+  
+  // Run prediction with available data
+  try {
+    // Pad to 900 if needed, or use last 900 if more
+    let sample;
+    if (currentData.length < TESTING_BUFFER_SIZE * 9) {
+      // Pad with zeros to reach 900
+      sample = [...currentData];
+      while (sample.length < TESTING_BUFFER_SIZE * 9) {
+        sample.push(0);
+      }
+    } else {
+      // Use last 900 values
+      sample = currentData.slice(-TESTING_BUFFER_SIZE * 9);
+    }
+    
+    const prediction = await mlTrainer.predict(sample);
+    
+    // Update UI via training UI controller
+    trainingUI.updatePrediction(prediction);
+    
+  } catch (error) {
+    console.error('❌ Prediction error:', error);
+  }
 }
 
 // ============================================================================

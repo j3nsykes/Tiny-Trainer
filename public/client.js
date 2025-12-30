@@ -15,13 +15,13 @@ let isScanning = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 BLE Motion Trainer Client Starting...');
-    
+
     // Initialize Socket.IO connection
     initializeSocket();
-    
+
     // Setup UI event listeners
     setupEventListeners();
-    
+
     // Check BLE state
     checkBLEState();
 });
@@ -34,44 +34,65 @@ function initializeSocket() {
     // Extract server URL from the socket.io script tag
     const socketScript = document.querySelector('script[src*="socket.io"]');
     const serverUrl = socketScript ? socketScript.src.match(/https?:\/\/[^\/]+/)[0] : 'http://localhost:3000';
-    
+
     console.log('🔌 Connecting to:', serverUrl);
-    
+
     socket = io(serverUrl);
-    
+
     socket.on('connect', () => {
         console.log('✅ Connected to server');
         updateServerURL(serverUrl);
     });
-    
+
     socket.on('disconnect', () => {
         console.log('❌ Disconnected from server');
     });
-    
+
     socket.on('ble-state', (state) => {
         console.log('🔵 BLE State:', state);
         updateBLEStatus(state);
     });
-    
+
     socket.on('ble-device-discovered', (device) => {
         console.log('🔍 Discovered:', device);
         addDiscoveredDevice(device);
     });
-    
+
     socket.on('device-status', (data) => {
         console.log('📡 Device Status:', data);
         updateDeviceStatus(data.id, data.status);
     });
-    
+
     socket.on('serial-data', (data) => {
         // Note: Event name kept as 'serial-data' for compatibility
         console.log('📥 Data from', data.id + ':', data.data);
         displayDeviceData(data.id, data.data);
     });
-    
+
     socket.on('server-started', (info) => {
         console.log('🚀 Server info:', info);
         updateServerURL(info.url);
+    });
+
+    // Receive list of currently connected devices from backend
+    socket.on('devices-list', (devices) => {
+        console.log('📱 Received connected devices from backend:', devices);
+
+        // Restore connected devices in UI
+        devices.forEach(device => {
+            if (device.connected) {
+                // Only show if actually connected and streaming
+                addDeviceCard(
+                    device.id,
+                    device.name,
+                    'connected',
+                    device.profile,
+                    null
+                );
+
+                console.log(`✅ Restored device in UI: ${device.name} (${device.id})`);
+            }
+        });
     });
 }
 
@@ -84,22 +105,22 @@ function setupEventListeners() {
     document.getElementById('add-device-btn').addEventListener('click', () => {
         openScanModal();
     });
-    
+
     // Close Scan Modal
     document.getElementById('close-scan-modal').addEventListener('click', () => {
         closeScanModal();
     });
-    
+
     // Start Scan Button
     document.getElementById('start-scan-btn').addEventListener('click', () => {
         startScan();
     });
-    
+
     // Usage Guide Button
     document.getElementById('usage-guide-btn').addEventListener('click', () => {
         showUsageGuide();
     });
-    
+
     // Close modal on background click
     document.getElementById('scan-modal').addEventListener('click', (e) => {
         if (e.target.id === 'scan-modal') {
@@ -126,10 +147,10 @@ async function checkBLEState() {
 function updateBLEStatus(state) {
     const statusElement = document.getElementById('ble-status');
     const textElement = document.getElementById('ble-state-text');
-    
+
     statusElement.className = 'ble-status';
-    
-    switch(state) {
+
+    switch (state) {
         case 'poweredOn':
             statusElement.classList.add('powered-on');
             textElement.textContent = 'Bluetooth Ready';
@@ -173,33 +194,33 @@ async function startScan() {
     const scanBtn = document.getElementById('start-scan-btn');
     const scanIndicator = document.getElementById('scanning-indicator');
     const discoveredContainer = document.getElementById('discovered-devices');
-    
+
     try {
         scanBtn.disabled = true;
         scanBtn.textContent = '⏹️ Stop Scanning';
         scanIndicator.style.display = 'block';
         discoveredContainer.innerHTML = '';
         isScanning = true;
-        
+
         const response = await fetch('/api/ble/scan/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!response.ok) {
             throw new Error('Failed to start scan');
         }
-        
+
         // Stop scanning after 10 seconds
         setTimeout(() => {
             if (isScanning) {
                 stopScan();
             }
         }, 10000);
-        
+
         scanBtn.onclick = stopScan;
         scanBtn.disabled = false;
-        
+
     } catch (error) {
         console.error('Error starting scan:', error);
         alert('Failed to start scanning. Make sure Bluetooth is enabled.');
@@ -213,18 +234,18 @@ async function startScan() {
 async function stopScan() {
     const scanBtn = document.getElementById('start-scan-btn');
     const scanIndicator = document.getElementById('scanning-indicator');
-    
+
     try {
         await fetch('/api/ble/scan/stop', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         scanBtn.textContent = '🔍 Start Scanning';
         scanBtn.onclick = startScan;
         scanIndicator.style.display = 'none';
         isScanning = false;
-        
+
     } catch (error) {
         console.error('Error stopping scan:', error);
     }
@@ -234,9 +255,9 @@ function addDiscoveredDevice(device) {
     if (discoveredDevices.has(device.id)) {
         return; // Already added
     }
-    
+
     discoveredDevices.set(device.id, device);
-    
+
     const container = document.getElementById('discovered-devices');
     const deviceElement = document.createElement('div');
     deviceElement.className = 'discovered-device';
@@ -245,7 +266,7 @@ function addDiscoveredDevice(device) {
         <div class="id">${device.id}</div>
         <div class="rssi">RSSI: ${device.rssi} dBm</div>
     `;
-    
+
     deviceElement.onclick = () => connectToDevice(device);
     container.appendChild(deviceElement);
 }
@@ -257,14 +278,14 @@ function addDiscoveredDevice(device) {
 async function connectToDevice(peripheral) {
     const deviceName = document.getElementById('device-name-input').value || `device_${connectedDevices.size + 1}`;
     const profile = document.getElementById('device-profile-select').value;
-    
+
     try {
         console.log(`🔗 Connecting to ${peripheral.name}...`);
-        
+
         // Add device card immediately with "connecting" status
         const deviceId = deviceName;
         addDeviceCard(deviceId, peripheral.name || 'Unknown Device', 'connecting', profile, peripheral.id);
-        
+
         const response = await fetch('/api/ble/connect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -274,15 +295,15 @@ async function connectToDevice(peripheral) {
                 profile: profile
             })
         });
-        
+
         if (!response.ok) {
             throw new Error('Connection failed');
         }
-        
+
         console.log('✅ Connected successfully');
         updateDeviceStatus(deviceId, 'connected');
         closeScanModal();
-        
+
     } catch (error) {
         console.error('Connection error:', error);
         alert(`Failed to connect: ${error.message}`);
@@ -297,14 +318,14 @@ async function disconnectDevice(deviceId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId })
         });
-        
+
         if (!response.ok) {
             throw new Error('Disconnection failed');
         }
-        
+
         console.log('✅ Disconnected successfully');
         removeDeviceCard(deviceId);
-        
+
     } catch (error) {
         console.error('Disconnection error:', error);
         alert(`Failed to disconnect: ${error.message}`);
@@ -318,13 +339,13 @@ async function sendToDevice(deviceId, data) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId, data })
         });
-        
+
         if (!response.ok) {
             throw new Error('Send failed');
         }
-        
+
         console.log('✅ Data sent successfully');
-        
+
     } catch (error) {
         console.error('Send error:', error);
         alert(`Failed to send data: ${error.message}`);
@@ -336,6 +357,14 @@ async function sendToDevice(deviceId, data) {
 // ============================================================================
 
 function addDeviceCard(deviceId, deviceName, status, profile, peripheralId) {
+    // Check if card already exists (prevent duplicates)
+    const existingCard = document.getElementById(`device-${deviceId}`);
+    if (existingCard) {
+        console.log(`⚠️ Device card already exists for ${deviceId}, updating status instead`);
+        updateDeviceStatus(deviceId, status);
+        return;
+    }
+
     connectedDevices.set(deviceId, {
         name: deviceName,
         status: status,
@@ -343,10 +372,10 @@ function addDeviceCard(deviceId, deviceName, status, profile, peripheralId) {
         peripheralId: peripheralId,
         dataBuffer: []
     });
-    
+
     // Hide empty state
     document.getElementById('empty-state').style.display = 'none';
-    
+
     // Create device card
     const deviceList = document.getElementById('device-list');
     const card = document.createElement('div');
@@ -360,7 +389,7 @@ function addDeviceCard(deviceId, deviceName, status, profile, peripheralId) {
             </div>
             <div class="status-badge ${status}">${status}</div>
         </div>
-        
+
         <div class="device-controls">
             <div class="button-row">
                 <button class="btn btn-secondary" onclick="disconnectDevice('${deviceId}')">
@@ -374,7 +403,7 @@ function addDeviceCard(deviceId, deviceName, status, profile, peripheralId) {
                 🎓 Start Training
             </button>
         </div>
-        
+
         <div class="form-group">
             <label>Live Data Monitor</label>
             <div class="data-monitor" id="data-${deviceId}">
@@ -382,7 +411,7 @@ function addDeviceCard(deviceId, deviceName, status, profile, peripheralId) {
             </div>
         </div>
     `;
-    
+
     deviceList.appendChild(card);
     updateDeviceCount();
 }
@@ -392,10 +421,10 @@ function removeDeviceCard(deviceId) {
     if (card) {
         card.remove();
     }
-    
+
     connectedDevices.delete(deviceId);
     updateDeviceCount();
-    
+
     // Show empty state if no devices
     if (connectedDevices.size === 0) {
         document.getElementById('empty-state').style.display = 'block';
@@ -405,17 +434,17 @@ function removeDeviceCard(deviceId) {
 function updateDeviceStatus(deviceId, status) {
     const card = document.getElementById(`device-${deviceId}`);
     if (!card) return;
-    
+
     const statusBadge = card.querySelector('.status-badge');
     statusBadge.className = `status-badge ${status}`;
     statusBadge.textContent = status;
-    
+
     // Update stored status
     const device = connectedDevices.get(deviceId);
     if (device) {
         device.status = status;
     }
-    
+
     // If disconnected, remove after a delay
     if (status === 'disconnected') {
         setTimeout(() => removeDeviceCard(deviceId), 2000);
@@ -425,7 +454,7 @@ function updateDeviceStatus(deviceId, status) {
 function displayDeviceData(deviceId, data) {
     const monitor = document.getElementById(`data-${deviceId}`);
     if (!monitor) return;
-    
+
     // Store data in buffer
     const device = connectedDevices.get(deviceId);
     if (device) {
@@ -434,28 +463,28 @@ function displayDeviceData(deviceId, data) {
             device.dataBuffer.shift();
         }
     }
-    
+
     // Create timestamp
     const now = new Date();
     const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-    
+
     // Add to monitor (keep last 20 lines)
     const lines = monitor.querySelectorAll('.data-line');
     if (lines.length >= 20) {
         monitor.removeChild(lines[0]);
     }
-    
+
     // Remove "Waiting for data..." message
     const placeholder = monitor.querySelector('div[style*="italic"]');
     if (placeholder) {
         monitor.removeChild(placeholder);
     }
-    
+
     const line = document.createElement('div');
     line.className = 'data-line';
     line.innerHTML = `<span class="timestamp">${timestamp}</span>${escapeHtml(data)}`;
     monitor.appendChild(line);
-    
+
     // Auto-scroll to bottom
     monitor.scrollTop = monitor.scrollHeight;
 }
@@ -481,7 +510,7 @@ function escapeHtml(text) {
 
 function showUsageGuide() {
     const serverUrl = document.getElementById('server-url').textContent;
-    
+
     alert(`BLE Motion Trainer - Quick Start Guide
 
 1. ARDUINO SETUP:
@@ -518,7 +547,7 @@ See documentation for full API reference.`);
 
 window.disconnectDevice = disconnectDevice;
 window.testDevice = testDevice;
-window.openTrainer = function(deviceId) {
+window.openTrainer = function (deviceId) {
     window.location.href = `/trainer.html?device=${deviceId}`;
 };
 

@@ -6,6 +6,7 @@
     <title>BLE Motion Trainer - Training</title>
     <link rel="stylesheet" href="css/trainer.css">
     <link rel="stylesheet" href="css/gestures.css">
+    <link rel="stylesheet" href="css/toast.css">
 </head>
 <body>
     <!-- Header -->
@@ -86,6 +87,9 @@
 
         <!-- Training Actions -->
         <section class="actions-section">
+            <button class="btn-secondary" id="load-data-btn" title="Load previously exported training data (.json)">
+                📂 Load Training Data
+            </button>
             <button class="btn-secondary" id="export-data-btn" disabled>
                 📥 Export Training Data
             </button>
@@ -96,6 +100,9 @@
                 <p id="training-info-text">Add at least 2 gestures with samples to train</p>
             </div>
         </section>
+
+        <!-- Hidden file input for loading data -->
+        <input type="file" id="load-data-input" accept=".json" style="display: none;">
 
     </main>
 
@@ -140,12 +147,123 @@
         </div>
     </div>
 
+    <!-- Training Modal -->
+    <div class="modal" id="training-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Training Model</h3>
+                <button class="close-btn" id="close-training-modal-x">&times;</button>
+            </div>
+            <div class="modal-body modal-body-training">
+                <!-- Training Status -->
+                <div class="training-status-container">
+                    <div class="training-status" id="training-status">Initializing...</div>
+                    <div class="training-progress-bar">
+                        <div class="training-progress-fill" id="training-progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="training-progress-text" id="training-progress-text">0 / 50 epochs</div>
+                </div>
+
+                <!-- Training Info -->
+                <div class="training-info-grid">
+                    <div class="info-box">
+                        <div class="info-label">Training Samples</div>
+                        <div class="info-value" id="info-train-samples">-</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-label">Validation Samples</div>
+                        <div class="info-value" id="info-val-samples">-</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-label">Epochs</div>
+                        <div class="info-value" id="info-epochs">-</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-label">Batch Size</div>
+                        <div class="info-value" id="info-batch-size">-</div>
+                    </div>
+                </div>
+
+                <!-- Current Metrics -->
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-label">Loss</div>
+                        <div class="metric-value" id="metric-loss">-</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Accuracy</div>
+                        <div class="metric-value" id="metric-accuracy">-</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Val Loss</div>
+                        <div class="metric-value" id="metric-val-loss">-</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Val Accuracy</div>
+                        <div class="metric-value" id="metric-val-accuracy">-</div>
+                    </div>
+                </div>
+
+                <!-- Training Chart -->
+                <div class="chart-container">
+                    <canvas id="training-chart" width="700" height="300"></canvas>
+                </div>
+
+                <!-- Final Results (hidden until complete) -->
+                <div class="final-results" id="final-results" style="display: none;"></div>
+
+                <!-- Testing Interface (shown after training) -->
+                <div class="testing-interface" id="testing-interface" style="display: none;">
+                    <div class="testing-header">
+                        <h3>🧪 Test Your Model</h3>
+                        <p>Perform gestures to see real-time classification</p>
+                    </div>
+
+                    <div class="testing-content">
+                        <!-- Current Prediction -->
+                        <div class="current-prediction">
+                            <div class="prediction-label">Predicted Gesture:</div>
+                            <div class="prediction-value" id="predicted-gesture">—</div>
+                            <div class="prediction-confidence" id="prediction-confidence">—</div>
+                        </div>
+
+                        <!-- Probability Bars -->
+                        <div class="probability-bars" id="probability-bars">
+                            <!-- Dynamically generated -->
+                        </div>
+
+                        <!-- Testing Controls -->
+                        <div class="testing-controls">
+                            <button class="btn-secondary" id="start-testing-btn">▶ Start Testing</button>
+                            <button class="btn-secondary" id="stop-testing-btn" style="display: none;">⏸ Stop Testing</button>
+                            <div class="testing-status" id="testing-status">Click "Start Testing" to begin</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="stop-training-btn">Stop Training</button>
+                <button class="btn-secondary" id="close-training-btn" style="display: none;">Close</button>
+                <button class="btn-primary" id="export-model-btn" disabled>Export Model</button>
+                <button class="btn-success" id="download-model-btn" disabled>Download for Arduino</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="js/toast.js"></script>
     <script src="ble-bridge.js"></script>
     <script src="js/ml/gesture-manager.js"></script>
     <script src="js/ml/data-collector.js"></script>
     <script src="js/ml/visualizer.js"></script>
+    <script src="js/ml/data-processor.js"></script>
+    <script src="js/ml/model-builder.js"></script>
+    <script src="js/ml/ml-trainer.js"></script>
+    <script src="js/ml/arduino-generator.js"></script>
+    <script src="js/ml/training-ui.js"></script>
     <script src="js/trainer-ui.js"></script>
 </body>
 </html>

@@ -396,6 +396,17 @@ section {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
+.modal-content.modal-large {
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-body-training {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -515,4 +526,358 @@ section {
     .training-info {
         text-align: left;
     }
+}
+
+/* ============================================================================
+   Training Modal Styles
+   ============================================================================ */
+
+.training-status-container {
+    margin-bottom: 20px;
+}
+
+.training-status {
+    font-size: 14px;
+    color: #a0a0d0;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.training-status-training {
+    color: #7c4dff;
+}
+
+.training-status-complete {
+    color: #00ff88;
+}
+
+.training-status-error {
+    color: #ff4081;
+}
+
+.training-status-stopped {
+    color: #ffc107;
+}
+
+.training-progress-bar {
+    height: 8px;
+    background: #1a0f2e;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.training-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c4dff, #00ff88);
+    transition: width 0.3s ease;
+}
+
+.training-progress-text {
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+}
+
+.training-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.info-box {
+    background: #1a0f2e;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid #2a1a4a;
+}
+
+.info-label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.info-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #7c4dff;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.metric-box {
+    background: #1a0f2e;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid #2a1a4a;
+}
+
+.metric-label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.metric-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #00ff88;
+}
+
+.chart-container {
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 20px;
+}
+
+#training-chart {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.final-results {
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.result-summary h3 {
+    font-size: 18px;
+    color: #00ff88;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.result-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.result-metric {
+    text-align: center;
+}
+
+.result-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.result-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: #00ff88;
+}
+
+.per-class-results {
+    margin-top: 20px;
+}
+
+.per-class-results h4 {
+    font-size: 14px;
+    color: #a0a0d0;
+    margin-bottom: 12px;
+}
+
+.class-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #0f0a1f;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.class-label {
+    font-size: 13px;
+    color: #e0e0e0;
+    font-weight: 500;
+}
+
+.class-accuracy {
+    font-size: 16px;
+    font-weight: 600;
+    color: #7c4dff;
+}
+
+.class-count {
+    font-size: 11px;
+    color: #666;
+}
+
+/* ============================================================================
+   Testing Interface Styles
+   ============================================================================ */
+
+.testing-interface {
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.testing-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.testing-header h3 {
+    font-size: 18px;
+    color: #7c4dff;
+    margin-bottom: 8px;
+}
+
+.testing-header p {
+    font-size: 13px;
+    color: #a0a0d0;
+}
+
+.testing-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Current Prediction */
+.current-prediction {
+    background: #0f0a1f;
+    border: 2px solid #2a1a4a;
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+}
+
+.prediction-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.prediction-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: #00ff88;
+    margin-bottom: 8px;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.prediction-value.low-confidence {
+    color: #ffc107;
+}
+
+.prediction-value.no-prediction {
+    color: #666;
+}
+
+.prediction-confidence {
+    font-size: 16px;
+    color: #a0a0d0;
+}
+
+/* Probability Bars */
+.probability-bars {
+    background: #0f0a1f;
+    border: 1px solid #2a1a4a;
+    border-radius: 6px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.probability-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.prob-label {
+    min-width: 100px;
+    font-size: 13px;
+    color: #a0a0d0;
+    font-weight: 500;
+}
+
+.prob-label.active {
+    color: #00ff88;
+    font-weight: 600;
+}
+
+.prob-bar-container {
+    flex: 1;
+    height: 24px;
+    background: #1a0f2e;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.prob-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c4dff, #00ff88);
+    transition: width 0.2s ease-out;
+    border-radius: 12px;
+}
+
+.prob-bar-fill.active {
+    background: linear-gradient(90deg, #00ff88, #00ff88);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.prob-value {
+    min-width: 50px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+}
+
+.prob-value.active {
+    color: #00ff88;
+}
+
+/* Testing Controls */
+.testing-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.testing-controls button {
+    min-width: 140px;
+}
+
+.testing-status {
+    flex: 1;
+    font-size: 12px;
+    color: #a0a0d0;
+    text-align: right;
+}
+
+.testing-status.active {
+    color: #00ff88;
 }

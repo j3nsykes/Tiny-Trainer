@@ -17,6 +17,10 @@ class DataCollector {
     this.framesCollected = 0;
     this.framesTarget = 100;
     
+    // Rolling buffer for testing (last 100 frames)
+    this.currentBuffer = [];
+    this.maxBufferSize = 100 * 9; // 100 frames × 9 axes
+    
     // Capture settings (matching TMT defaults)
     this.accelerationThreshold = 0.167; // Minimum movement to trigger
     this.captureDelay = 125; // ms between captures
@@ -71,6 +75,14 @@ class DataCollector {
     }
 
     const [ax, ay, az, gx, gy, gz, mx, my, mz] = values;
+    
+    // Update rolling buffer for testing (always, not just when capturing)
+    this.currentBuffer.push(ax, ay, az, gx, gy, gz, mx, my, mz);
+    
+    // Keep only last 100 frames (900 values)
+    if (this.currentBuffer.length > this.maxBufferSize) {
+      this.currentBuffer = this.currentBuffer.slice(-this.maxBufferSize);
+    }
     
     // If we're capturing, collect this frame
     if (this.isCapturing) {
@@ -223,6 +235,23 @@ class DataCollector {
   setCaptureDelay(ms) {
     this.captureDelay = Math.max(50, Math.min(1000, ms));
     console.log('✅ Capture delay set to:', this.captureDelay, 'ms');
+  }
+
+  // ========================================================================
+  // Status
+  // ========================================================================
+
+  // ========================================================================
+  // Get Current Buffer (for testing mode)
+  // ========================================================================
+
+  getCurrentBuffer() {
+    // Return a copy of the current buffer for real-time testing
+    // Return empty array if buffer not ready
+    if (!this.currentBuffer || this.currentBuffer.length === 0) {
+      return [];
+    }
+    return this.currentBuffer.slice();
   }
 
   // ========================================================================

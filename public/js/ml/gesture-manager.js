@@ -77,6 +77,14 @@ class GestureManager {
     console.log('✅ Gesture removed:', name);
   }
 
+  clearAll() {
+    // Remove all gestures
+    this.gestures = [];
+    this.selectedGesture = null;
+    this.emit('allGesturesCleared', {});
+    console.log('✅ All gestures cleared');
+  }
+
   renameGesture(oldName, newName) {
     const gesture = this.gestures.find(g => g.name === oldName);
     if (!gesture) {
