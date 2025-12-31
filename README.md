@@ -139,6 +139,7 @@ You have three export options:
 - Generates complete Arduino sketch with your trained model embedded
 - Includes all necessary code for on-device inference
 - Upload to Arduino for standalone operation (no computer needed)
+- Generated code includes UART BLE connectivity that is compatible with the Serial-Bridge app for streaming classification results and predictions to other applications (P5JS, Touch Designer etc) and creating larger creative workflows. 
 
 ## Usage Tips
 
