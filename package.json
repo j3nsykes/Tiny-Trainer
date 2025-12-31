@@ -1,17 +1,17 @@
 {
-  "name": "ble-tiny-motion-trainer",
-  "productName": "BLE Motion Trainer",
+  "name": "tiny-trainer",
+  "productName": "Tiny Trainer",
   "version": "1.0.0",
   "description": "Train TensorFlow Lite models for Arduino Nano BLE Sense wirelessly",
   "main": "main.js",
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "Jen Sykes",
+    "email": "j3nsykes@gmail.com"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/ble-tiny-motion-trainer.git"
+    "url": "https://github.com/j3nsykes/Tiny-Trainer.git"
   },
   "scripts": {
     "start": "electron .",
@@ -38,8 +38,8 @@
     "node-gyp": "^10.0.1"
   },
   "build": {
-    "appId": "com.yourname.ble-motion-trainer",
-    "productName": "BLE Motion Trainer",
+    "appId": "com.jensykes.tiny-trainer",
+    "productName": "Tiny Trainer",
     "copyright": "Copyright © 2025 ${author}",
     "directories": {
       "output": "dist",
@@ -131,7 +131,7 @@
       "category": "Development",
       "icon": "assets/icon.png",
       "desktop": {
-        "Name": "BLE Motion Trainer",
+        "Name": "Tiny Trainer",
         "Comment": "Train TensorFlow Lite models for Arduino",
         "Categories": "Development;Education;"
       }

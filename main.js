@@ -51,8 +51,8 @@ const trainingData = new Map(); // sessionId -> { gestures: [], samples: [] }
 // ============================================================================
 
 app.whenReady().then(async () => {
-  createWindow();
   await initializeServer();
+  createWindow();
   setupIPC();
   loadDeviceProfiles();
   initializeBLE();
@@ -123,7 +123,16 @@ async function initializeServer() {
   });
 
   // Serve static files
-  expressApp.use(express.static('public'));
+  const publicPath = path.join(__dirname, 'public');
+  console.log('📁 Serving static files from:', publicPath);
+  console.log('📁 Public folder exists:', fs.existsSync(publicPath));
+
+  if (fs.existsSync(publicPath)) {
+    const files = fs.readdirSync(publicPath);
+    console.log('📁 Files in public:', files);
+  }
+
+  expressApp.use(express.static(publicPath));
   expressApp.use(express.json({ limit: '50mb' }));
 
   // API Endpoints
@@ -135,16 +144,19 @@ async function initializeServer() {
   // Find available port
   serverPort = await findAvailablePort(CONFIG.serverPort);
 
-  httpServer.listen(serverPort, () => {
-    console.log(`✅ Server running on http://localhost:${serverPort}`);
+  return new Promise((resolve) => {
+    httpServer.listen(serverPort, () => {
+      console.log(`✅ Server running on http://localhost:${serverPort}`);
 
-    // Notify renderer process
-    if (mainWindow) {
-      mainWindow.webContents.send('server-started', {
-        port: serverPort,
-        url: `http://localhost:${serverPort}`,
-      });
-    }
+      // Notify renderer process
+      if (mainWindow) {
+        mainWindow.webContents.send('server-started', {
+          port: serverPort,
+          url: `http://localhost:${serverPort}`,
+        });
+      }
+      resolve();
+    });
   });
 }
 
