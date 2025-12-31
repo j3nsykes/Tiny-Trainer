@@ -46,7 +46,7 @@ class ColorDataCollector {
       captureCompleted: [],
       captureFailed: [],
       captureCancelled: [],
-      colorUpdate: [], // New: for real-time color visualization
+      colorUpdate: [],
     };
 
     // Setup data listener

@@ -13,6 +13,9 @@ let bridge;
 let colorDataCollector;
 let colorVisualizer;
 
+// Audio tab components
+let audioUIManager;
+
 // ML Training components
 let dataProcessor;
 let modelBuilder;
@@ -65,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   modelBuilder = new ModelBuilder();
   mlTrainer = new MLTrainer(dataProcessor, modelBuilder);
   trainingUI = new TrainingUI(mlTrainer);
+  window.trainingUIManager = trainingUI; // Make globally accessible for audio tab
 
   // Setup event listeners
   setupEventListeners();
@@ -694,7 +698,7 @@ function exportTrainingData() {
   
   const a = document.createElement('a');
   a.href = url;
-  a.download = `training-data-${Date.now()}.json`;
+  a.download = `gesture-training-data-${Date.now()}.json`;
   a.click();
   
   // Show toast notification
@@ -755,8 +759,15 @@ async function exportModel() {
     const url = URL.createObjectURL(blob);
 
     // Determine model type from training data
-    const dataType = mlTrainer.trainingData?.dataType || 'gesture';
-    const modelType = dataType === 'color' ? 'color' : 'gesture';
+    const dataType = mlTrainer.trainingData?.dataType || 'imu';
+    let modelType;
+    if (dataType === 'color') {
+      modelType = 'color';
+    } else if (dataType === 'audio') {
+      modelType = 'audio';
+    } else {
+      modelType = 'gesture';
+    }
 
     const a = document.createElement('a');
     a.href = url;
@@ -798,20 +809,37 @@ async function downloadModelForArduino() {
       duration: 3000
     });
     
-    // Get gesture/color labels
-    const labels = gestureManager.getAllGestures().map(g => g.name);
-
-    // Detect data type
+    // Detect data type first
     const dataType = mlTrainer.trainingData?.dataType || 'imu';
 
-    // Create Arduino generator
-    const generator = new ArduinoModelGenerator();
+    // Get labels based on data type
+    let labels;
+    if (dataType === 'audio') {
+      // For audio, get labels from training data
+      labels = mlTrainer.trainingData.labels;
+      console.log('   Audio labels:', labels);
+    } else {
+      // For IMU/Color, get labels from gesture manager
+      labels = gestureManager.getAllGestures().map(g => g.name);
+    }
 
-    // Convert model (this prepares the model data)
-    await generator.convertToTFLite(mlTrainer.model, labels, dataType);
-    
-    // Generate Arduino code files
-    const files = generator.generateArduinoCode();
+    // Create appropriate Arduino generator based on data type
+    let generator;
+    let files;
+
+    if (dataType === 'audio') {
+      // Use specialized audio generator with full CNN inference
+      console.log('   Using AudioArduinoGenerator for full CNN model');
+      generator = new AudioArduinoGenerator();
+      await generator.convertModel(mlTrainer.model, labels);
+      files = generator.generateArduinoLibrary();
+    } else {
+      // Use standard generator for IMU and Color
+      console.log('   Using ArduinoModelGenerator for standard model');
+      generator = new ArduinoModelGenerator();
+      await generator.convertToTFLite(mlTrainer.model, labels, dataType);
+      files = generator.generateArduinoCode();
+    }
     
     // Create ZIP file
     const zip = new JSZip();
@@ -825,7 +853,14 @@ async function downloadModelForArduino() {
     const zipBlob = await zip.generateAsync({ type: 'blob' });
 
     // Download ZIP file
-    const modelType = dataType === 'color' ? 'color' : 'gesture';
+    let modelType;
+    if (dataType === 'color') {
+      modelType = 'color';
+    } else if (dataType === 'audio') {
+      modelType = 'audio';
+    } else {
+      modelType = 'gesture';
+    }
 
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
@@ -892,43 +927,64 @@ const TESTING_BUFFER_SIZE = 100; // Match training frame size
 
 function startTesting() {
   if (isTestingActive) return;
-  
+
   console.log('🧪 Starting testing mode...');
   isTestingActive = true;
   testingBuffer = [];
-  
+
+  // Detect data type from training data
+  const dataType = mlTrainer.trainingData?.dataType || 'imu';
+
   // Update UI
   document.getElementById('start-testing-btn').style.display = 'none';
   document.getElementById('stop-testing-btn').style.display = 'block';
-  document.getElementById('testing-status').textContent = 'Testing active - perform gestures!';
-  document.getElementById('testing-status').classList.add('active');
-  
-  // Start collecting data and running predictions
-  testingInterval = setInterval(runPrediction, 50); // 20Hz prediction rate (faster response)
-  
-  toast.info('Testing mode active - perform gestures!', {
-    title: 'Testing Started',
-    duration: 3000
-  });
+
+  if (dataType === 'audio') {
+    document.getElementById('testing-status').textContent = 'Click "Test Sample" to record and classify audio';
+    document.getElementById('testing-status').classList.add('active');
+
+    toast.info('Testing mode active - click "Test Sample" to record and classify', {
+      title: 'Audio Testing',
+      duration: 3000
+    });
+
+    // For audio, we don't use continuous prediction
+    // Instead, show a button to record test samples
+    createAudioTestButton();
+  } else {
+    document.getElementById('testing-status').textContent = 'Testing active - perform gestures!';
+    document.getElementById('testing-status').classList.add('active');
+
+    // Start collecting data and running predictions
+    testingInterval = setInterval(runPrediction, 50); // 20Hz prediction rate (faster response)
+
+    toast.info('Testing mode active - perform gestures!', {
+      title: 'Testing Started',
+      duration: 3000
+    });
+  }
 }
 
 function stopTesting() {
   if (!isTestingActive) return;
-  
+
   console.log('🛑 Stopping testing mode...');
   isTestingActive = false;
-  
+
   if (testingInterval) {
     clearInterval(testingInterval);
     testingInterval = null;
   }
-  
+
+  // Remove audio test button if it exists
+  removeAudioTestButton();
+
   // Update UI
   document.getElementById('start-testing-btn').style.display = 'block';
   document.getElementById('stop-testing-btn').style.display = 'none';
   document.getElementById('testing-status').textContent = 'Testing stopped';
   document.getElementById('testing-status').classList.remove('active');
-  
+
   // Reset display
   document.getElementById('predicted-gesture').textContent = '—';
   document.getElementById('prediction-confidence').textContent = '—';
@@ -940,12 +996,15 @@ async function runPrediction() {
   // Detect data type from training data
   const dataType = mlTrainer.trainingData?.dataType || 'imu';
 
+  // Audio uses discrete sample recording via button, not continuous prediction
+  if (dataType === 'audio') {
+    return;
+  }
+
   // Use appropriate data collector based on model type
   let currentData;
   if (dataType === 'color') {
     currentData = colorDataCollector.getCurrentBuffer();
-  } else if (dataType === 'audio') {
-    currentData = audioDataCollector ? audioDataCollector.getCurrentBuffer() : null;
   } else {
     // IMU or default
     currentData = dataCollector.getCurrentBuffer();
@@ -1009,6 +1068,164 @@ async function runPrediction() {
 }
 
 // ============================================================================
+// Audio Testing
+// ============================================================================
+
+let audioTestButton = null;
+
+function createAudioTestButton() {
+  // Create a test sample button for audio testing
+  const testingControls = document.querySelector('.testing-controls');
+  if (!testingControls) return;
+
+  // Check if button already exists
+  if (audioTestButton) return;
+
+  audioTestButton = document.createElement('button');
+  audioTestButton.className = 'btn-primary';
+  audioTestButton.id = 'audio-test-sample-btn';
+  audioTestButton.textContent = '🎤 Test Sample';
+  audioTestButton.style.marginTop = '10px';
+
+  audioTestButton.addEventListener('click', recordAndPredictAudio);
+
+  testingControls.appendChild(audioTestButton);
+  console.log('✅ Audio test button created');
+}
+
+function removeAudioTestButton() {
+  if (audioTestButton && audioTestButton.parentNode) {
+    audioTestButton.parentNode.removeChild(audioTestButton);
+    audioTestButton = null;
+    console.log('🗑️ Audio test button removed');
+  }
+}
+
+async function recordAndPredictAudio() {
+  if (!audioUIManager || !audioUIManager.isMicrophoneEnabled) {
+    toast.error('Please enable microphone first');
+    return;
+  }
+
+  if (!mlTrainer || !mlTrainer.model) {
+    toast.error('No trained model available');
+    return;
+  }
+
+  console.log('🎤 Recording test sample...');
+
+  // Disable button during recording
+  if (audioTestButton) {
+    audioTestButton.disabled = true;
+    audioTestButton.textContent = '🔴 Recording...';
+  }
+
+  // Update status
+  const statusEl = document.getElementById('testing-status');
+  if (statusEl) {
+    statusEl.textContent = 'Recording...';
+  }
+
+  try {
+    // Get the audio collector from the UI manager
+    const audioCollector = audioUIManager.audioCollector;
+    const duration = audioUIManager.duration || 1.0;
+
+    // Record a sample
+    audioCollector.startRecording((event) => {
+      if (event.type === 'complete') {
+        console.log('✅ Recording complete, running prediction...');
+
+        // Run prediction on the features
+        const features = event.features;
+
+        // Get expected feature length from model
+        const inputShape = mlTrainer.model.inputs[0].shape;
+        const expectedLength = inputShape[1];
+
+        console.log(`🔍 Feature length: ${features.length}, Expected: ${expectedLength}`);
+
+        // Ensure features match expected length
+        let processedFeatures = features;
+        if (features.length < expectedLength) {
+          // Pad with zeros
+          processedFeatures = [...features];
+          while (processedFeatures.length < expectedLength) {
+            processedFeatures.push(0);
+          }
+          console.log(`⚠️ Padded features from ${features.length} to ${expectedLength}`);
+        } else if (features.length > expectedLength) {
+          // Truncate
+          processedFeatures = features.slice(0, expectedLength);
+          console.log(`⚠️ Truncated features from ${features.length} to ${expectedLength}`);
+        }
+
+        // Run prediction
+        mlTrainer.predict(processedFeatures).then(prediction => {
+          console.log('✅ Prediction complete:', prediction);
+
+          // Update UI with prediction
+          trainingUI.updatePrediction(prediction);
+
+          // Re-enable button
+          if (audioTestButton) {
+            audioTestButton.disabled = false;
+            audioTestButton.textContent = '🎤 Test Sample';
+          }
+
+          // Update status
+          if (statusEl) {
+            statusEl.textContent = `Predicted: ${prediction.predictedLabel} (${(prediction.confidence * 100).toFixed(1)}%)`;
+          }
+
+          toast.success(`Predicted: ${prediction.predictedLabel} (${(prediction.confidence * 100).toFixed(1)}%)`);
+        }).catch(error => {
+          console.error('❌ Prediction error:', error);
+          toast.error(`Prediction failed: ${error.message}`);
+
+          // Re-enable button
+          if (audioTestButton) {
+            audioTestButton.disabled = false;
+            audioTestButton.textContent = '🎤 Test Sample';
+          }
+
+          if (statusEl) {
+            statusEl.textContent = 'Prediction failed';
+          }
+        });
+      } else if (event.type === 'error') {
+        console.error('❌ Recording error:', event.error);
+        toast.error(`Recording failed: ${event.error}`);
+
+        // Re-enable button
+        if (audioTestButton) {
+          audioTestButton.disabled = false;
+          audioTestButton.textContent = '🎤 Test Sample';
+        }
+
+        if (statusEl) {
+          statusEl.textContent = 'Recording failed';
+        }
+      }
+    }, duration);
+
+  } catch (error) {
+    console.error('❌ Error starting recording:', error);
+    toast.error(`Error: ${error.message}`);
+
+    // Re-enable button
+    if (audioTestButton) {
+      audioTestButton.disabled = false;
+      audioTestButton.textContent = '🎤 Test Sample';
+    }
+
+    if (statusEl) {
+      statusEl.textContent = 'Error';
+    }
+  }
+}
+
+// ============================================================================
 // Debug
 // ============================================================================
 
@@ -1039,6 +1256,21 @@ function setupTabListeners() {
     // Stop any ongoing data collection when switching tabs
     if (dataCollector && dataCollector.isCapturing) {
       dataCollector.stopCapture();
+    }
+
+    // Lazy initialize audio UI manager when audio tab is selected
+    if (newTab === 'audio' && !audioUIManager) {
+      try {
+        console.log('🎤 Initializing audio UI manager...');
+        audioUIManager = new AudioUIManager();
+        audioUIManager.init();
+        console.log('✅ Audio UI manager initialized');
+      } catch (error) {
+        console.error('❌ Failed to initialize audio UI manager:', error);
+        console.error('   Error details:', error.message);
+        console.error('   Stack:', error.stack);
+        // Don't let this break tab switching - page should still work
+      }
     }
 
     // Update BLE streaming mode (handled in TabManager)
@@ -1185,72 +1417,88 @@ function setupColorDataCollectorListeners() {
 }
 
 // ============================================================================
-// Audio Tab Event Listeners (Placeholder)
+// Audio Tab Event Listeners
 // ============================================================================
 
 function setupAudioEventListeners() {
-  // Enable Microphone button
-  const enableMicBtn = document.getElementById('enable-mic-btn');
-  if (enableMicBtn) {
-    enableMicBtn.addEventListener('click', async () => {
-      console.log('🎤 Enable Microphone button clicked');
+  // Add sound button
+  const addSoundBtn = document.getElementById('add-sound-btn');
+  if (addSoundBtn) {
+    addSoundBtn.addEventListener('click', () => {
+      openAddSoundModal();
+    });
+  }
 
-      try {
-        // Request microphone access
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log('✅ Microphone access granted');
+  // Add sound modal
+  const closeSoundModal = document.getElementById('close-sound-modal');
+  const cancelSoundBtn = document.getElementById('cancel-sound-btn');
+  const createSoundBtn = document.getElementById('create-sound-btn');
 
-        // Hide overlay, show mic is active
-        const overlay = document.getElementById('audio-preview-overlay');
-        if (overlay) {
-          overlay.style.display = 'none';
-        }
+  if (closeSoundModal) {
+    closeSoundModal.addEventListener('click', closeAddSoundModal);
+  }
+  if (cancelSoundBtn) {
+    cancelSoundBtn.addEventListener('click', closeAddSoundModal);
+  }
+  if (createSoundBtn) {
+    createSoundBtn.addEventListener('click', createSound);
+  }
 
-        toast.success('Microphone enabled!');
-
-        // TODO: Initialize audio visualization
-        // TODO: Setup audio data collector
-
-      } catch (error) {
-        console.error('❌ Microphone access denied:', error);
-        toast.error('Microphone access denied. Please allow microphone permissions.');
+  // Enter key in sound name input
+  const soundNameInput = document.getElementById('sound-name-input');
+  if (soundNameInput) {
+    soundNameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        createSound();
       }
     });
   }
 
-  // Add Sound button
-  const addSoundBtn = document.getElementById('add-sound-btn');
-  if (addSoundBtn) {
-    addSoundBtn.addEventListener('click', () => {
-      console.log('🎵 Add Sound button clicked');
-      toast.info('Audio tab functionality coming soon!');
-      // TODO: Show add sound modal
-    });
-  }
-
-  // Load/Export/Train buttons for audio
-  const loadAudioBtn = document.getElementById('load-audio-data-btn');
-  if (loadAudioBtn) {
-    loadAudioBtn.addEventListener('click', () => {
-      toast.info('Load audio data - coming soon!');
-    });
-  }
-
-  const exportAudioBtn = document.getElementById('export-audio-data-btn');
-  if (exportAudioBtn) {
-    exportAudioBtn.addEventListener('click', () => {
-      toast.info('Export audio data - coming soon!');
-    });
-  }
-
-  const trainAudioBtn = document.getElementById('train-audio-model-btn');
-  if (trainAudioBtn) {
-    trainAudioBtn.addEventListener('click', () => {
-      toast.info('Train audio model - coming soon!');
+  // Close modal on background click
+  const addSoundModal = document.getElementById('add-sound-modal');
+  if (addSoundModal) {
+    addSoundModal.addEventListener('click', (e) => {
+      if (e.target.id === 'add-sound-modal') closeAddSoundModal();
     });
   }
 
   console.log('✅ Audio event listeners configured');
+}
+
+// ============================================================================
+// Audio Modal Functions
+// ============================================================================
+
+function openAddSoundModal() {
+  document.getElementById('add-sound-modal').classList.add('active');
+  document.getElementById('sound-name-input').value = '';
+  document.getElementById('sound-name-input').focus();
+}
+
+function closeAddSoundModal() {
+  document.getElementById('add-sound-modal').classList.remove('active');
+}
+
+function createSound() {
+  const name = document.getElementById('sound-name-input').value.trim();
+
+  if (!name) {
+    toast.error('Please enter a sound name');
+    return;
+  }
+
+  if (!audioUIManager) {
+    toast.error('Audio UI not initialized');
+    return;
+  }
+
+  try {
+    audioUIManager.addSound(name);
+    closeAddSoundModal();
+    toast.success(`Sound "${name}" added`);
+  } catch (error) {
+    toast.error(error.message);
+  }
 }
 
 // ============================================================================

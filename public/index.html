@@ -454,7 +454,7 @@
       <h1>BLE Motion Trainer</h1>
       <p class="subtitle">Train TensorFlow Lite models for Arduino</p>
 
-      <div class="server-info">
+      <div class="server-info" id="server-info" style="display: none;">
         <div class="label">Server URL:</div>
         <div class="url" id="server-url">http://localhost:3000</div>
       </div>
@@ -465,6 +465,10 @@
       </div>
 
       <button class="btn" id="add-device-btn">+ New Connection</button>
+
+      <button class="btn btn-secondary" id="skip-to-audio-btn" style="background: #ff6b35; color: white;">
+        📂 Skip to Load Data
+      </button>
 
       <button class="btn btn-secondary" id="usage-guide-btn">
         📖 Usage Guide
@@ -499,12 +503,19 @@
             />
           </svg>
           <h3>No Devices Connected</h3>
-          <p>Click "+ New Connection" to connect your Arduino Nano BLE Sense</p>
+          <p>Connect your Arduino Nano 33 BLE Sense to get started</p>
           <button
             class="btn"
             onclick="document.getElementById('add-device-btn').click()"
+            style="margin-bottom: 10px;"
           >
-            Get Started
+            Start Connection
+          </button>
+          <button
+            class="btn btn-secondary"
+            id="getting-started-btn"
+          >
+            📖 Getting Started
           </button>
         </div>
 

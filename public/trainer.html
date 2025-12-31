@@ -33,7 +33,7 @@
             <span class="tab-icon">🎨</span>
             <span class="tab-label">Color Recognition</span>
         </button>
-        <button class="tab-btn" data-tab="audio">
+        <button class="tab-btn" data-tab="audio" id="audio-tab-btn">
             <span class="tab-icon">🎤</span>
             <span class="tab-label">Sound Classification</span>
         </button>
@@ -397,6 +397,27 @@
         </div>
     </div>
 
+    <!-- Add Sound Modal -->
+    <div class="modal" id="add-sound-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Sound</h3>
+                <button class="close-btn" id="close-sound-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>
+                    Sound Name
+                    <input type="text" id="sound-name-input" placeholder="e.g., clap, whistle, snap">
+                </label>
+                <p class="hint">Choose a descriptive name for the sound you want to recognize.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-sound-btn">Cancel</button>
+                <button class="btn-primary" id="create-sound-btn">Create Sound</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Training Modal -->
     <div class="modal" id="training-modal">
         <div class="modal-content modal-large">
@@ -466,7 +487,7 @@
                 <div class="testing-interface" id="testing-interface" style="display: none;">
                     <div class="testing-header">
                         <h3>🧪 Test Your Model</h3>
-                        <p>Perform gestures to see real-time classification</p>
+                        <p>Test your inputs to see real-time classification</p>
                     </div>
 
                     <div class="testing-content">
@@ -506,17 +527,47 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="js/toast.js"></script>
     <script src="ble-bridge.js"></script>
+    <script src="js/feature-flags.js"></script>
     <script src="js/tab-manager.js"></script>
     <script src="js/ml/gesture-manager.js"></script>
     <script src="js/ml/data-collector.js"></script>
     <script src="js/ml/color-data-collector.js"></script>
+    <script src="js/ml/audio-data-collector.js"></script>
     <script src="js/ml/visualizer.js"></script>
     <script src="js/color-visualizer.js"></script>
+    <script src="js/ml/audio-visualizer.js"></script>
+    <script src="js/ml/audio-ui-manager.js"></script>
     <script src="js/ml/data-processor.js"></script>
     <script src="js/ml/model-builder.js"></script>
     <script src="js/ml/ml-trainer.js"></script>
     <script src="js/ml/arduino-generator.js"></script>
+    <script src="js/ml/audio-arduino-generator.js"></script>
     <script src="js/ml/training-ui.js"></script>
     <script src="js/trainer-ui.js"></script>
+
+    <!-- Feature Flag Initialization -->
+    <script>
+        // Hide/show features based on flags
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.FeatureFlags.ENABLE_AUDIO) {
+                // Hide audio tab button
+                const audioTabBtn = document.getElementById('audio-tab-btn');
+                if (audioTabBtn) audioTabBtn.style.display = 'none';
+
+                // Hide audio panel
+                const audioPanel = document.getElementById('audio-panel');
+                if (audioPanel) audioPanel.style.display = 'none';
+
+                console.log('ℹ️  Audio features disabled (see feature-flags.js)');
+            }
+
+            // Log active features
+            const activeFeatures = [];
+            if (window.FeatureFlags.ENABLE_IMU) activeFeatures.push('IMU');
+            if (window.FeatureFlags.ENABLE_COLOR) activeFeatures.push('Color');
+            if (window.FeatureFlags.ENABLE_AUDIO) activeFeatures.push('Audio');
+            console.log('✅ Active features:', activeFeatures.join(', '));
+        });
+    </script>
 </body>
 </html>

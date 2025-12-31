@@ -351,6 +351,10 @@ section {
     text-align: center;
 }
 
+.preview-message button {
+    pointer-events: auto;
+}
+
 /* Capture Status - Compact */
 .capture-status {
     display: flex;
@@ -1081,4 +1085,39 @@ section {
 /* Smooth bar transitions */
 .color-bar {
     transition: width 0.1s ease-out;
+}
+
+/* ============================================================================
+   Gesture/Sound Card Styles (Audio & IMU)
+   ============================================================================ */
+
+.gesture-card {
+    background: #0f0a1f;
+    border: 2px solid #2a1a4a;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.3s ease;
+}
+
+.gesture-card.selected {
+    border-color: #7c4dff;
+    box-shadow: 0 0 20px rgba(124, 77, 255, 0.3);
+}
+
+/* Recording animation - red pulsing outline */
+.gesture-card.recording {
+    border-color: #ff4081;
+    animation: recordingPulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(255, 64, 129, 0.4);
+}
+
+@keyframes recordingPulse {
+    0%, 100% {
+        border-color: #ff4081;
+        box-shadow: 0 0 20px rgba(255, 64, 129, 0.4);
+    }
+    50% {
+        border-color: #ff6090;
+        box-shadow: 0 0 30px rgba(255, 64, 129, 0.6);
+    }
 }

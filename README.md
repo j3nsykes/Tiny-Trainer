@@ -1,328 +1,264 @@
-# BLE_TMT - Complete Implementation Package
+# BLE Tiny Motion Trainer
 
-## 📦 What You Have
+A desktop application for training machine learning models with Arduino Nano 33 BLE Sense. Collect sensor data, train models in your browser, and deploy them back to Arduino for on-device inference.
 
-This package contains everything you need to transform SerialBridge v2.0 into BLE Tiny Motion Trainer.
+## Features
 
----
+- **IMU Classification** - Train models using accelerometer and gyroscope data (motion gestures)
+- **Color Classification** - Train models using the APDS9960 color sensor
+- **Real-time Training** - Train TensorFlow.js models directly in the app
+- **Arduino Export** - Download ready-to-upload Arduino code with your trained model
+- **BLE Connectivity** - Wireless data collection and device management
 
-## 📄 Core Files (Copy to your BLE_TMT directory)
+## Hardware Requirements
 
-### 1. main.js
-**Location:** Replace your existing `main.js`  
-**Purpose:** Complete rewrite with BLE-only functionality and training API  
-**Changes:**
-- ❌ Removed all serial port code
-- ❌ Removed OSC functionality
-- ✅ Kept BLE device management
-- ✅ Added training data API
-- ✅ Added model export endpoints
+- **Arduino Nano 33 BLE Sense** (or Sense Rev2)
+  - Built-in IMU sensor (LSM9DS1 or BMI270/BMM150)
+  - Built-in color sensor (APDS9960)
+  - Bluetooth Low Energy connectivity
 
-### 2. package.json
-**Location:** Replace your existing `package.json`  
-**Purpose:** Updated dependencies - removes serial, adds TensorFlow.js  
-**Action Required:** Update author fields with your information
+## Software Requirements
 
-### 3. nano-ble.json
-**Location:** `public/profiles/nano-ble.json`  
-**Purpose:** Device profile for Arduino Nano 33 BLE Sense  
-**Contains:**
-- BLE UART service UUIDs
-- IMU sensor specifications
-- Data format definition
-- Recommended settings
+- **Node.js** 16.x or higher
+- **Arduino IDE** (for uploading sketches to Arduino)
+- **Bluetooth** enabled on your computer
 
-### 4. imu-sender.ino
-**Location:** `examples/arduino-nano-ble/imu-sender.ino`  
-**Purpose:** Complete Arduino sketch for streaming IMU data via BLE  
-**Features:**
-- BLE UART communication
-- LSM9DS1 IMU reading
-- 50Hz sample rate
-- Command handling (LED control, info, etc.)
+## Getting Started
 
----
+### 1. Upload Arduino Code
 
-## 📚 Documentation Files (Reference guides)
+Before using the app, you need to upload the multi-sensor streaming sketch to your Arduino:
 
-### 5. BLE_TMT_FILE_STRUCTURE.md
-**Purpose:** Comprehensive guide to which files to keep/remove/modify  
-**Use this to:**
-- Understand the project structure
-- Know what to delete
-- See what needs modification
-- Plan your implementation
+1. Open Arduino IDE
+2. Install required libraries:
+   - ArduinoBLE
+   - Arduino_LSM9DS1 (for original Nano 33 BLE Sense)
+   - Arduino_BMI270_BMM150 (for Nano 33 BLE Sense Rev2)
+   - Arduino_APDS9960
+3. Open `examples/Arduino/multi-sensor-stream/multi-sensor-stream.ino`
+4. Select your board: **Tools > Board > Arduino Nano 33 BLE**
+5. Select your port: **Tools > Port**
+6. Click **Upload**
+7. Open Serial Monitor (115200 baud) to verify - should show "BLE peripheral active, waiting for connections..."
 
-### 6. MIGRATION_GUIDE.md
-**Purpose:** Detailed explanation of changes from SerialBridge to BLE_TMT  
-**Covers:**
-- What was removed and why
-- What was kept and why
-- What was added
-- Code comparisons (before/after)
-- Common issues and solutions
+### 2. Download and Run the App
 
-### 7. SETUP_INSTRUCTIONS.md
-**Purpose:** Step-by-step implementation guide  
-**Includes:**
-- 10-step setup process
-- Command-by-command instructions
-- Troubleshooting for each step
-- Verification checklist
-- Debug mode instructions
+#### Option A: Download Release (Recommended)
 
-### 8. QUICK_REFERENCE.md
-**Purpose:** Cheat sheet for daily development  
-**Contains:**
-- Quick start commands
-- API endpoints list
-- Data format specifications
-- Common code snippets
-- Troubleshooting table
+1. Go to [Releases](https://github.com/jensykes/BLE_tinyMotionTrainer/releases)
+2. Download the latest version for your platform:
+   - **macOS:** `BLE-Tiny-Motion-Trainer-darwin-x64.zip`
+   - **Windows:** `BLE-Tiny-Motion-Trainer-win32-x64.zip`
+   - **Linux:** `BLE-Tiny-Motion-Trainer-linux-x64.zip`
+3. Extract the ZIP file
+4. Run the application:
+   - **macOS:** Open `BLE Tiny Motion Trainer.app`
+   - **Windows:** Run `BLE Tiny Motion Trainer.exe`
+   - **Linux:** Run `./BLE\ Tiny\ Motion\ Trainer`
 
----
+#### Option B: Run from Source
 
-## 🗂️ File Organization
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/jensykes/BLE_tinyMotionTrainer.git
+   cd BLE_tinyMotionTrainer
+   ```
 
-After setup, your directory should look like:
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Run the app:
+   ```bash
+   npm start
+   ```
+
+   Or run in development mode:
+   ```bash
+   npm run dev
+   ```
+
+### 3. Connect Your Arduino
+
+1. Make sure your Arduino has the multi-sensor-stream sketch uploaded
+2. Click **"Start Connection"** button
+3. Click **"Start Scanning"**
+4. Select your Arduino from the list (shows as "TMT_XXXX")
+5. Click **"Open Trainer"** to begin
+
+### 4. Collect Training Data
+
+#### For IMU (Motion/Gesture) Classification:
+
+1. Select **IMU** tab
+2. Click **"+ Create Gesture"** and name it (e.g., "punch", "wave", "shake")
+3. Click **"Start Capture"** on the gesture
+4. Perform the motion for 1-2 seconds
+5. Repeat 20-30 times for each gesture
+6. Create 2-3 different gestures
+
+#### For Color Classification:
+
+1. Select **Color** tab
+2. Click **"+ Create Color"** and name it (e.g., "red", "blue", "green")
+3. Click **"Start Capture"** on the color
+4. Hold a colored object close to the sensor for 1-2 seconds
+5. Repeat 20-30 times for each color
+6. Create 2-3 different colors
+
+**Tip:** Aim for 20-30 samples per class for best results. More samples = better accuracy.
+
+### 5. Train Your Model
+
+1. Click **"Start Training"** button
+2. Wait for training to complete (usually 10-60 seconds)
+3. View the training accuracy in the results panel
+4. Test your model in real-time by performing gestures or showing colors
+
+### 6. Export Your Model
+
+You have three export options:
+
+#### Export Training Data (JSON)
+- Saves all your captured samples as JSON
+- Use this to backup your data or share with others
+- Can be imported later to retrain or modify
+
+#### Export Model (TensorFlow.js)
+- Downloads your trained model in TensorFlow.js format
+- Use this for web applications or further training
+
+#### Download Arduino Code
+- Generates complete Arduino sketch with your trained model embedded
+- Includes all necessary code for on-device inference
+- Upload to Arduino for standalone operation (no computer needed)
+
+## Usage Tips
+
+- **Start Simple:** Begin with 2-3 classes and 20 samples each
+- **Be Consistent:** Perform gestures or show colors the same way during capture
+- **Test Thoroughly:** Use the real-time testing before exporting
+- **Lighting Matters:** For color classification, use consistent lighting
+- **Motion Matters:** For IMU, make distinct, repeatable gestures
+
+## Troubleshooting
+
+### Arduino won't connect
+- Ensure Bluetooth is enabled on your computer
+- Check Arduino is powered and running the multi-sensor-stream sketch
+- Open Arduino Serial Monitor (115200 baud) - should show "BLE peripheral active"
+- Try moving Arduino closer to computer (within 5 meters)
+- Restart the app and try again
+
+### Connection drops frequently
+- Reduce distance between Arduino and computer
+- Close other Bluetooth devices/apps
+- Check Arduino USB power is stable
+
+### Training accuracy is low
+- Collect more samples (aim for 30+ per class)
+- Make gestures more distinct from each other
+- Ensure consistent motion/color presentation during capture
+- Try retraining with a validation split
+
+### Arduino code won't compile
+- Ensure you have all required libraries installed
+- Check you selected the correct board (Arduino Nano 33 BLE)
+- For Rev2 boards, uncomment the Rev2 sensor includes in the code
+
+## Project Structure
 
 ```
-BLE_TMT/
-├── main.js                          ✅ NEW VERSION
-├── package.json                     ✅ UPDATED
-├── preload.js                       (keep as-is)
-├── settings-manager.js              (keep as-is)
+BLE_tinyMotionTrainer/
+├── main.js                    # Electron main process
+├── package.json              # Dependencies and scripts
+├── preload.js                # Electron preload script
+├── settings-manager.js       # App settings manager
 │
-├── public/
-│   ├── index.html                   (to modify)
-│   ├── client.js                    (to modify)
-│   ├── profiles/
-│   │   └── nano-ble.json           ✅ NEW
-│   └── js/
-│       └── ml/                      (to create)
+├── public/                   # Frontend code
+│   ├── index.html           # Connection page
+│   ├── trainer.html         # Training interface
+│   ├── client.js            # Main client logic
+│   ├── feature-flags.js     # Feature toggles
+│   │
+│   ├── css/                 # Stylesheets
+│   │   ├── main.css
+│   │   └── trainer.css
+│   │
+│   ├── js/                  # JavaScript modules
+│   │   ├── ble-device.js   # BLE device handler
+│   │   ├── gesture-manager.js  # Gesture management
+│   │   ├── data-visualizer.js  # Real-time graphs
+│   │   │
+│   │   └── ml/              # Machine learning
+│   │       ├── ml-trainer.js
+│   │       ├── imu-trainer.js
+│   │       ├── color-trainer.js
+│   │       ├── imu-arduino-generator.js
+│   │       └── color-arduino-generator.js
+│   │
+│   └── profiles/            # Device profiles
+│       └── nano-ble.json
 │
-└── examples/
-    └── arduino-nano-ble/
-        ├── imu-sender.ino          ✅ NEW
-        └── README.md               (to create)
+└── examples/                # Example code
+    └── Arduino/
+        └── multi-sensor-stream/
+            └── multi-sensor-stream.ino
 ```
 
----
+## Development
 
-## 🚀 Implementation Roadmap
-
-### Week 1: Foundation (BLE Connectivity)
-- [ ] Replace main.js
-- [ ] Update dependencies
-- [ ] Add device profile
-- [ ] Upload Arduino sketch
-- [ ] Test BLE connection
-- [ ] Verify data streaming
-
-**Deliverables:** Working BLE connection with IMU data streaming
-
-### Week 2: UI Cleanup
-- [ ] Remove Serial/USB UI elements
-- [ ] Simplify connection interface
-- [ ] Update branding (BLE_TMT instead of SerialBridge)
-- [ ] Test on all platforms
-
-**Deliverables:** Clean, BLE-only interface
-
-### Week 3: Training Interface
-- [ ] Create gesture capture UI
-- [ ] Implement sample recording
-- [ ] Add visualization (live IMU graph)
-- [ ] Build gesture management (add/remove/rename)
-
-**Deliverables:** Functional data collection interface
-
-### Week 4: ML Integration
-- [ ] Integrate TensorFlow.js
-- [ ] Implement training algorithm
-- [ ] Add validation split
-- [ ] Create training progress UI
-- [ ] Test model accuracy
-
-**Deliverables:** Working model training pipeline
-
-### Week 5: Model Export
-- [ ] Implement TFLite conversion
-- [ ] Generate Arduino code
-- [ ] Package model + sketch as ZIP
-- [ ] Create deployment guide
-
-**Deliverables:** Complete export system
-
-### Week 6: Polish & Testing
-- [ ] Cross-platform testing (Mac/Win/Linux)
-- [ ] Performance optimization
-- [ ] Documentation
-- [ ] Example projects
-
-**Deliverables:** Production-ready application
-
----
-
-## 🎯 Immediate Next Steps
-
-1. **Read SETUP_INSTRUCTIONS.md first** - Follow it step-by-step
-2. **Keep QUICK_REFERENCE.md open** - Use as command cheat sheet
-3. **Refer to MIGRATION_GUIDE.md** - When you're unsure what changed
-4. **Check BLE_TMT_FILE_STRUCTURE.md** - Before deleting anything
-
----
-
-## 🧪 Testing Strategy
-
-### Phase 1: Smoke Test (5 min)
+### Build from source:
 ```bash
 npm install
-npm run dev
-# App should launch without errors
+npm start
 ```
 
-### Phase 2: BLE Test (10 min)
-1. Upload Arduino sketch
-2. Open app
-3. Scan for devices
-4. Connect to Arduino
-5. Verify data in console
-
-### Phase 3: Connection Stability (15 min)
-1. Connect
-2. Let run for 5 minutes
-3. Disconnect
-4. Reconnect
-5. Check for memory leaks
-
-### Phase 4: Multi-Device (Optional)
-1. Connect multiple Arduinos
-2. Verify all data streams independently
-3. Test simultaneous disconnection
-
----
-
-## 🐛 Debug Checklist
-
-If something doesn't work:
-
-1. **Check Node Version**
-   ```bash
-   node --version  # Should be 16+ 
-   ```
-
-2. **Check Dependencies**
-   ```bash
-   npm list --depth=0
-   # Verify no "serialport" packages
-   ```
-
-3. **Check Arduino**
-   - Open Serial Monitor (115200 baud)
-   - Should show "BLE advertising started"
-   - No errors
-
-4. **Check Bluetooth**
-   - System Bluetooth is ON
-   - No other apps connected to Arduino
-   - Arduino is within range (< 5 meters)
-
-5. **Check Console**
-   - Open DevTools (Cmd+Option+I)
-   - Look for red errors
-   - Check Network tab for WebSocket connection
-
----
-
-## 📞 Support Resources
-
-### Included Documentation
-- BLE_TMT_FILE_STRUCTURE.md - Project structure
-- MIGRATION_GUIDE.md - Code changes explained
-- SETUP_INSTRUCTIONS.md - Step-by-step setup
-- QUICK_REFERENCE.md - Daily development cheat sheet
-
-### External Resources
-- [ArduinoBLE Documentation](https://www.arduino.cc/reference/en/libraries/arduinoble/)
-- [Noble GitHub](https://github.com/abandonware/noble)
-- [TensorFlow.js Guide](https://www.tensorflow.org/js)
-
-### Community
-- Original Tiny Motion Trainer: https://github.com/googlecreativelab/tiny-motion-trainer
-- SerialBridge: https://github.com/IrtizaNasar/SerialBridge
-
----
-
-## 🎓 Key Concepts
-
-### BLE UART vs USB Serial
-- **USB Serial:** Physical cable, requires drivers, fast, no pairing
-- **BLE UART:** Wireless, standard protocol, ~50ms latency, requires pairing
-
-### Nordic UART Service (NUS)
-- Industry-standard BLE service for serial communication
-- TX (0003): Arduino → Computer (Notify)
-- RX (0002): Computer → Arduino (Write)
-
-### IMU Data
-- **Accelerometer:** Measures acceleration (g-force)
-- **Gyroscope:** Measures rotation (degrees per second)
-- **Sampling Rate:** 50Hz = 50 samples/second = 20ms between samples
-
-### Training Pipeline
-```
-IMU Data → Feature Extraction → Model Training → TFLite → Arduino
+### Build release packages:
+```bash
+npm run build
 ```
 
----
+This creates platform-specific packages in the `release-builds/` directory.
 
-## 🏆 Success Metrics
+### Enable debug features:
+Edit `public/js/feature-flags.js` and set:
+```javascript
+DEBUG_MODE: true
+```
 
-### Technical
-- ✅ BLE connection success rate > 95%
-- ✅ Data latency < 100ms
-- ✅ Model training time < 5 minutes
-- ✅ Model size < 50KB
-- ✅ Inference accuracy > 90%
+## Technical Details
 
-### User Experience
-- ✅ Connection in < 10 seconds
-- ✅ Training in < 5 clicks
-- ✅ Model export in < 30 seconds
-- ✅ Zero-configuration for beginners
+- **Frontend:** HTML/CSS/JavaScript (Electron renderer)
+- **Backend:** Node.js (Electron main process)
+- **BLE Library:** Noble (via @abandonware/noble)
+- **ML Library:** TensorFlow.js (@tensorflow/tfjs)
+- **Communication:** Nordic UART Service (NUS)
+- **Supported Sensors:** IMU (accelerometer/gyroscope), Color (APDS9960)
 
----
+## Credits
 
-## 📊 Project Stats
+Inspired by [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer)
 
-| Metric | Value |
-|--------|-------|
-| **Files Modified** | 8 |
-| **Files Added** | 4 |
-| **Files Removed** | ~20 |
-| **Dependencies Removed** | 3 |
-| **Dependencies Added** | 3 |
-| **Lines of Code** | ~1500 |
-| **Documentation Pages** | 4 |
+## License
 
----
+MIT License - see LICENSE file for details
 
-## 🎉 You're Ready!
+## Contributing
 
-All the files you need are now available. Start with SETUP_INSTRUCTIONS.md and work through it step-by-step.
+Issues and pull requests welcome! Please see CONTRIBUTING.md for guidelines.
 
-**Remember:**
-- Don't rush - test each step
-- Keep documentation open
-- Check console logs frequently
-- Ask for help when stuck
+## Support
 
-Good luck building BLE Tiny Motion Trainer! 🚀
+For questions or issues:
+- Open an issue on GitHub
+- Check existing issues for solutions
+- Review the troubleshooting section above
 
 ---
 
-**Package Version:** 1.0.0  
-**Created:** December 2025  
-**Compatibility:** macOS, Windows, Linux  
-**License:** MIT
+**Version:** 1.0.0
+**Last Updated:** December 2025
+**Compatibility:** macOS, Windows, Linux
+**Arduino:** Nano 33 BLE Sense (all revisions)

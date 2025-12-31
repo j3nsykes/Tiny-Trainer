@@ -418,14 +418,18 @@ class TrainingUI {
   showTestingInterface() {
     const testingInterface = document.getElementById('testing-interface');
     if (!testingInterface) return;
-    
+
+    // Check if this is an audio model
+    const dataType = this.mlTrainer.trainingData?.dataType || 'imu';
+
     // Setup probability bars for each class
     this.setupProbabilityBars();
-    
+
     // Show interface
     testingInterface.style.display = 'block';
-    
+
     console.log('🧪 Testing interface ready');
+    console.log(`   Data type: ${dataType}`);
   }
 
   setupProbabilityBars() {
@@ -516,9 +520,30 @@ class TrainingUI {
   enableExportButtons() {
     const exportModelBtn = document.getElementById('export-model-btn');
     const downloadModelBtn = document.getElementById('download-model-btn');
-    
+
     if (exportModelBtn) exportModelBtn.disabled = false;
     if (downloadModelBtn) downloadModelBtn.disabled = false;
+  }
+
+  // ========================================================================
+  // Audio Training Initiation
+  // ========================================================================
+
+  startAudioTraining(samples, labels, soundNames, dimensions) {
+    console.log('🎤 Starting audio training...');
+    console.log(`   Samples: ${samples.length}`);
+    console.log(`   Sounds: ${soundNames.join(', ')}`);
+    console.log(`   Feature dimensions: ${dimensions.totalFeatures}`);
+
+    // Configure for audio training
+    const config = {
+      epochs: 50,
+      batchSize: 16,
+      validationSplit: 0.2
+    };
+
+    // Start training with audio-specific model
+    this.mlTrainer.trainAudioModel(samples, labels, soundNames, dimensions, config);
   }
 }
 

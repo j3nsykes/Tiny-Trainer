@@ -16,6 +16,12 @@ let isScanning = false;
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 BLE Motion Trainer Client Starting...');
 
+    // Show server info only in development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        const serverInfo = document.getElementById('server-info');
+        if (serverInfo) serverInfo.style.display = 'block';
+    }
+
     // Initialize Socket.IO connection
     initializeSocket();
 
@@ -106,6 +112,12 @@ function setupEventListeners() {
         openScanModal();
     });
 
+    // Skip to Audio Training Button
+    document.getElementById('skip-to-audio-btn').addEventListener('click', () => {
+        // Open trainer.html directly without needing BLE connection
+        window.location.href = 'trainer.html';
+    });
+
     // Close Scan Modal
     document.getElementById('close-scan-modal').addEventListener('click', () => {
         closeScanModal();
@@ -120,6 +132,14 @@ function setupEventListeners() {
     document.getElementById('usage-guide-btn').addEventListener('click', () => {
         showUsageGuide();
     });
+
+    // Getting Started Button (in empty state)
+    const gettingStartedBtn = document.getElementById('getting-started-btn');
+    if (gettingStartedBtn) {
+        gettingStartedBtn.addEventListener('click', () => {
+            showUsageGuide();
+        });
+    }
 
     // Close modal on background click
     document.getElementById('scan-modal').addEventListener('click', (e) => {
@@ -509,36 +529,35 @@ function escapeHtml(text) {
 }
 
 function showUsageGuide() {
-    const serverUrl = document.getElementById('server-url').textContent;
+    alert(`BLE Tiny Motion Trainer - Getting Started
 
-    alert(`BLE Motion Trainer - Quick Start Guide
+📱 STEP 1: CONNECT YOUR DEVICE
+   • Upload the multi-sensor-stream.ino sketch to your Arduino Nano 33 BLE Sense
+   • Click "+ New Connection" button
+   • Click "Start Scanning" and select your Arduino
+   • Click "Open Trainer" to begin
 
-1. ARDUINO SETUP:
-   • Upload the imu-sender.ino sketch
-   • Board should show "BLE advertising started"
+📊 STEP 2: COLLECT DATA
+   IMU Mode (Motion/Gestures):
+   • Create gestures (e.g., "punch", "wave", "shake")
+   • Capture 20-30 samples per gesture
 
-2. CONNECT DEVICE:
-   • Click "+ New Connection"
-   • Click "Start Scanning"
-   • Select your Arduino from the list
+   Color Mode:
+   • Create colors (e.g., "red", "blue", "green")
+   • Hold color samples to the sensor
+   • Capture 20-30 samples per color
 
-3. USE IN YOUR CODE:
-   • Include in HTML:
-     <script src="${serverUrl}/socket.io/socket.io.js"></script>
-     <script src="${serverUrl}/ble-bridge.js"></script>
+🧠 STEP 3: TRAIN YOUR MODEL
+   • Click "Start Training"
+   • Wait for training to complete (shows accuracy)
+   • Test your model in real-time
 
-   • In JavaScript:
-     const bridge = new BLEBridge();
-     bridge.onData('device_1', (data) => {
-         console.log('IMU Data:', data);
-     });
+💾 STEP 4: EXPORT
+   • Export Training Data: Save your samples as JSON
+   • Export Model: Download TensorFlow.js model
+   • Download Arduino Code: Get code for on-board inference
 
-4. TRAIN MODEL:
-   • Collect gesture samples
-   • Train with TensorFlow.js
-   • Export to TFLite for Arduino
-
-See documentation for full API reference.`);
+🎯 TIP: Start with 2-3 classes and 20 samples each for best results!`);
 }
 
 // ============================================================================

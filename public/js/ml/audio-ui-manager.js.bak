@@ -1,0 +1,559 @@
+// ============================================================================
+// Audio UI Manager - Sound Classification Interface
+// ============================================================================
+// Manages the audio tab UI, connects audio data collector, visualizer, and training
+// ============================================================================
+
+class AudioUIManager {
+    constructor() {
+        // Audio components
+        this.audioCollector = new AudioDataCollector();
+        this.audioVisualizer = null;
+
+        // Sound management
+        this.sounds = [];
+        this.selectedSound = null;
+        this.isRecording = false;
+        this.isMicrophoneEnabled = false;
+
+        // Settings
+        this.samplesPerClass = 20;
+        this.duration = 1.0; // seconds
+
+        // Training data
+        this.trainingData = {
+            samples: [],
+            labels: []
+        };
+
+        // DOM elements
+        this.elements = {};
+
+        console.log('🎤 AudioUIManager initialized');
+    }
+
+    init() {
+        this.cacheElements();
+        this.attachEventListeners();
+        this.updateUI();
+
+        console.log('✅ Audio UI ready');
+    }
+
+    cacheElements() {
+        // Settings
+        this.elements.samplesPerClass = document.getElementById('audio-samples-per-class');
+        this.elements.duration = document.getElementById('audio-duration');
+
+        // Sound management
+        this.elements.addSoundBtn = document.getElementById('add-sound-btn');
+        this.elements.soundsGrid = document.getElementById('sounds-grid');
+        this.elements.emptyState = document.getElementById('sounds-empty-state');
+
+        // Capture status
+        this.elements.captureStatus = document.getElementById('audio-capture-status');
+        this.elements.statusText = document.getElementById('audio-status-text');
+        this.elements.progressFill = document.getElementById('audio-progress-fill');
+        this.elements.frameCount = document.getElementById('audio-frame-count');
+
+        // Preview
+        this.elements.previewCanvas = document.getElementById('audio-preview-canvas');
+        this.elements.previewOverlay = document.getElementById('audio-preview-overlay');
+        this.elements.previewMessage = document.getElementById('audio-preview-message');
+        this.elements.enableMicBtn = document.getElementById('enable-mic-btn');
+
+        // Actions
+        this.elements.loadDataBtn = document.getElementById('load-audio-data-btn');
+        this.elements.exportDataBtn = document.getElementById('export-audio-data-btn');
+        this.elements.trainModelBtn = document.getElementById('train-audio-model-btn');
+        this.elements.trainingInfoText = document.getElementById('audio-training-info-text');
+        this.elements.loadDataInput = document.getElementById('load-audio-data-input');
+    }
+
+    attachEventListeners() {
+        // Enable microphone
+        if (this.elements.enableMicBtn) {
+            this.elements.enableMicBtn.addEventListener('click', () => this.enableMicrophone());
+        }
+
+        // Add sound
+        if (this.elements.addSoundBtn) {
+            this.elements.addSoundBtn.addEventListener('click', () => this.showAddSoundModal());
+        }
+
+        // Settings
+        if (this.elements.samplesPerClass) {
+            this.elements.samplesPerClass.addEventListener('change', (e) => {
+                this.samplesPerClass = parseInt(e.target.value);
+                this.updateUI();
+            });
+        }
+
+        if (this.elements.duration) {
+            this.elements.duration.addEventListener('change', (e) => {
+                this.duration = parseFloat(e.target.value);
+                this.audioCollector.setSampleDuration(this.duration);
+                this.updateFrameCount();
+            });
+        }
+
+        // Actions
+        if (this.elements.loadDataBtn && this.elements.loadDataInput) {
+            this.elements.loadDataBtn.addEventListener('click', () => this.elements.loadDataInput.click());
+            this.elements.loadDataInput.addEventListener('change', (e) => this.loadTrainingData(e));
+        }
+
+        if (this.elements.exportDataBtn) {
+            this.elements.exportDataBtn.addEventListener('click', () => this.exportTrainingData());
+        }
+
+        if (this.elements.trainModelBtn) {
+            this.elements.trainModelBtn.addEventListener('click', () => this.trainModel());
+        }
+    }
+
+    // ========================================================================
+    // Microphone Setup
+    // ========================================================================
+
+    async enableMicrophone() {
+        try {
+            await this.audioCollector.enableMicrophone();
+
+            this.isMicrophoneEnabled = true;
+
+            // Initialize visualizer
+            this.audioVisualizer = new AudioVisualizer('audio-preview-canvas');
+            this.audioVisualizer.start(this.audioCollector);
+
+            // Hide overlay
+            if (this.elements.previewOverlay) {
+                this.elements.previewOverlay.style.display = 'none';
+            }
+
+            if (typeof toast !== 'undefined') {
+                toast.success('Microphone enabled');
+            }
+            console.log('✅ Microphone enabled for audio training');
+        } catch (error) {
+            if (typeof toast !== 'undefined') {
+                toast.error(error.message);
+            }
+            console.error('❌ Microphone error:', error);
+        }
+    }
+
+    // ========================================================================
+    // Sound Management
+    // ========================================================================
+
+    showAddSoundModal() {
+        // Use existing modal if available, or create inline prompt
+        const soundName = prompt('Enter sound name (e.g., clap, whistle, snap):');
+
+        if (soundName && soundName.trim()) {
+            this.addSound(soundName.trim());
+        }
+    }
+
+    addSound(name) {
+        // Check for duplicates
+        if (this.sounds.find(s => s.name === name)) {
+            if (typeof toast !== 'undefined') {
+                toast.error(`Sound "${name}" already exists`);
+            }
+            return;
+        }
+
+        const sound = {
+            name: name,
+            samples: [],
+            id: `sound-${Date.now()}`
+        };
+
+        this.sounds.push(sound);
+        this.renderSounds();
+        this.updateUI();
+
+        console.log(`➕ Added sound: ${name}`);
+        if (typeof toast !== 'undefined') {
+            toast.success(`Added sound: ${name}`);
+        }
+    }
+
+    removeSound(soundId) {
+        const soundIndex = this.sounds.findIndex(s => s.id === soundId);
+        if (soundIndex === -1) return;
+
+        const soundName = this.sounds[soundIndex].name;
+
+        if (confirm(`Delete sound "${soundName}" and all its samples?`)) {
+            this.sounds.splice(soundIndex, 1);
+
+            if (this.selectedSound?.id === soundId) {
+                this.selectedSound = null;
+            }
+
+            this.renderSounds();
+            this.updateUI();
+
+            console.log(`🗑️ Removed sound: ${soundName}`);
+            showToast(`Removed sound: ${soundName}`, 'success');
+        }
+    }
+
+    selectSound(soundId) {
+        this.selectedSound = this.sounds.find(s => s.id === soundId);
+
+        // Update UI
+        document.querySelectorAll('.gesture-card').forEach(card => {
+            card.classList.toggle('selected', card.dataset.soundId === soundId);
+        });
+
+        console.log(`Selected sound: ${this.selectedSound?.name}`);
+    }
+
+    // ========================================================================
+    // Sample Recording
+    // ========================================================================
+
+    async recordSample(soundId) {
+        if (!this.isMicrophoneEnabled) {
+            showToast('Please enable microphone first', 'error');
+            return;
+        }
+
+        const sound = this.sounds.find(s => s.id === soundId);
+        if (!sound) return;
+
+        if (sound.samples.length >= this.samplesPerClass) {
+            showToast(`Maximum ${this.samplesPerClass} samples reached`, 'warning');
+            return;
+        }
+
+        this.isRecording = true;
+        this.selectSound(soundId);
+
+        // Update status
+        if (this.elements.statusText) {
+            this.elements.statusText.textContent = `Recording ${sound.name}...`;
+        }
+        if (this.elements.captureStatus) {
+            this.elements.captureStatus.classList.add('recording');
+        }
+
+        console.log(`🔴 Recording sample for: ${sound.name}`);
+
+        // Start recording
+        this.audioCollector.startRecording((event) => {
+            if (event.type === 'progress') {
+                // Update progress bar
+                const progress = event.progress * 100;
+                if (this.elements.progressFill) {
+                    this.elements.progressFill.style.width = `${progress}%`;
+                }
+                if (this.elements.frameCount) {
+                    this.elements.frameCount.textContent = `${Math.round(progress)}%`;
+                }
+
+                // Update visualizer
+                if (this.audioVisualizer) {
+                    this.audioVisualizer.drawRecordingProgress(event.progress, sound.name);
+                }
+            } else if (event.type === 'complete') {
+                // Save sample
+                sound.samples.push({
+                    features: event.features,
+                    numFrames: event.numFrames,
+                    numMFCC: event.numMFCC,
+                    timestamp: Date.now()
+                });
+
+                this.isRecording = false;
+
+                if (this.elements.captureStatus) {
+                    this.elements.captureStatus.classList.remove('recording');
+                }
+                if (this.elements.statusText) {
+                    this.elements.statusText.textContent = 'Ready';
+                }
+                if (this.elements.progressFill) {
+                    this.elements.progressFill.style.width = '0%';
+                }
+                if (this.elements.frameCount) {
+                    this.elements.frameCount.textContent = `${sound.samples.length} / ${this.samplesPerClass}`;
+                }
+
+                this.renderSounds();
+                this.updateUI();
+
+                console.log(`✅ Sample recorded (${sound.samples.length}/${this.samplesPerClass})`);
+                showToast(`Recorded ${sound.name} (${sound.samples.length}/${this.samplesPerClass})`, 'success');
+
+                // Restart visualization
+                if (this.audioVisualizer) {
+                    this.audioVisualizer.start(this.audioCollector);
+                }
+            }
+        }, this.duration);
+    }
+
+    deleteSample(soundId, sampleIndex) {
+        const sound = this.sounds.find(s => s.id === soundId);
+        if (!sound) return;
+
+        sound.samples.splice(sampleIndex, 1);
+        this.renderSounds();
+        this.updateUI();
+
+        console.log(`🗑️ Deleted sample from ${sound.name}`);
+    }
+
+    // ========================================================================
+    // UI Rendering
+    // ========================================================================
+
+    renderSounds() {
+        if (!this.elements.soundsGrid) return;
+
+        if (this.sounds.length === 0) {
+            this.elements.soundsGrid.innerHTML = '<div class="empty-state" id="sounds-empty-state"><p>No sounds yet. Click "+ Add Sound" to get started.</p><p class="hint">🎤 This will use your laptop\'s microphone for training</p></div>';
+            return;
+        }
+
+        this.elements.soundsGrid.innerHTML = '';
+
+        this.sounds.forEach(sound => {
+            const card = this.createSoundCard(sound);
+            this.elements.soundsGrid.appendChild(card);
+        });
+    }
+
+    createSoundCard(sound) {
+        const card = document.createElement('div');
+        card.className = 'gesture-card';
+        card.dataset.soundId = sound.id;
+
+        if (this.selectedSound?.id === sound.id) {
+            card.classList.add('selected');
+        }
+
+        const progress = (sound.samples.length / this.samplesPerClass) * 100;
+
+        card.innerHTML = `
+            <div class="gesture-header">
+                <h3 class="gesture-name">${sound.name}</h3>
+                <button class="btn-icon delete-sound" data-sound-id="${sound.id}">
+                    <span>🗑️</span>
+                </button>
+            </div>
+            <div class="gesture-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${progress}%"></div>
+                </div>
+                <span class="sample-count">${sound.samples.length} / ${this.samplesPerClass}</span>
+            </div>
+            <div class="gesture-actions">
+                <button class="btn-record" data-sound-id="${sound.id}" ${sound.samples.length >= this.samplesPerClass ? 'disabled' : ''}>
+                    🎤 Record
+                </button>
+            </div>
+        `;
+
+        // Event listeners
+        card.querySelector('.btn-record').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.recordSample(sound.id);
+        });
+
+        card.querySelector('.delete-sound').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeSound(sound.id);
+        });
+
+        card.addEventListener('click', () => {
+            this.selectSound(sound.id);
+        });
+
+        return card;
+    }
+
+    updateUI() {
+        // Update frame count display
+        this.updateFrameCount();
+
+        // Check if we have enough data to train
+        const hasEnoughSounds = this.sounds.length >= 2;
+        const allSoundsHaveSamples = this.sounds.every(s => s.samples.length > 0);
+        const canTrain = hasEnoughSounds && allSoundsHaveSamples;
+
+        if (this.elements.trainModelBtn) {
+            this.elements.trainModelBtn.disabled = !canTrain;
+        }
+
+        if (this.elements.exportDataBtn) {
+            this.elements.exportDataBtn.disabled = this.sounds.length === 0;
+        }
+
+        if (this.elements.trainingInfoText) {
+            if (!hasEnoughSounds) {
+                this.elements.trainingInfoText.textContent = 'Add at least 2 sounds with samples to train';
+            } else if (!allSoundsHaveSamples) {
+                this.elements.trainingInfoText.textContent = 'Record samples for all sounds';
+            } else {
+                const totalSamples = this.sounds.reduce((sum, s) => sum + s.samples.length, 0);
+                this.elements.trainingInfoText.textContent = `Ready to train with ${totalSamples} samples`;
+            }
+        }
+    }
+
+    updateFrameCount() {
+        if (!this.elements.frameCount) return;
+
+        const dims = this.audioCollector.getFeatureDimensions();
+        this.elements.frameCount.textContent = `0 / ${this.samplesPerClass}`;
+        console.log(`Audio dimensions: ${dims.numFrames} frames × ${dims.numMFCC} MFCC = ${dims.totalFeatures} features`);
+    }
+
+    // ========================================================================
+    // Training Integration
+    // ========================================================================
+
+    trainModel() {
+        // Prepare training data
+        this.trainingData.samples = [];
+        this.trainingData.labels = [];
+
+        this.sounds.forEach((sound, soundIndex) => {
+            sound.samples.forEach(sample => {
+                this.trainingData.samples.push(sample.features);
+                this.trainingData.labels.push(soundIndex);
+            });
+        });
+
+        const soundLabels = this.sounds.map(s => s.name);
+
+        console.log('🚀 Starting audio model training...');
+        console.log(`   Sounds: ${soundLabels.join(', ')}`);
+        console.log(`   Total samples: ${this.trainingData.samples.length}`);
+
+        // Trigger training via global training UI manager
+        if (window.trainingUIManager) {
+            window.trainingUIManager.startAudioTraining(
+                this.trainingData.samples,
+                this.trainingData.labels,
+                soundLabels,
+                this.audioCollector.getFeatureDimensions()
+            );
+        } else {
+            console.error('❌ Training UI manager not found');
+            showToast('Training system not initialized', 'error');
+        }
+    }
+
+    // ========================================================================
+    // Data Import/Export
+    // ========================================================================
+
+    exportTrainingData() {
+        const data = {
+            type: 'audio',
+            version: '1.0',
+            config: this.audioCollector.getConfig(),
+            dimensions: this.audioCollector.getFeatureDimensions(),
+            samplesPerClass: this.samplesPerClass,
+            duration: this.duration,
+            sounds: this.sounds.map(sound => ({
+                name: sound.name,
+                samples: sound.samples
+            })),
+            timestamp: new Date().toISOString()
+        };
+
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `audio-training-data-${Date.now()}.json`;
+        a.click();
+
+        URL.revokeObjectURL(url);
+
+        console.log('📥 Training data exported');
+        showToast('Training data exported', 'success');
+    }
+
+    loadTrainingData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                if (data.type !== 'audio') {
+                    throw new Error('Invalid file type. Expected audio training data.');
+                }
+
+                // Load sounds
+                this.sounds = data.sounds.map((sound, index) => ({
+                    name: sound.name,
+                    samples: sound.samples,
+                    id: `sound-${Date.now()}-${index}`
+                }));
+
+                // Load settings
+                if (data.samplesPerClass) {
+                    this.samplesPerClass = data.samplesPerClass;
+                    this.elements.samplesPerClass.value = this.samplesPerClass;
+                }
+
+                if (data.duration) {
+                    this.duration = data.duration;
+                    this.elements.duration.value = this.duration;
+                    this.audioCollector.setSampleDuration(this.duration);
+                }
+
+                this.renderSounds();
+                this.updateUI();
+
+                const totalSamples = this.sounds.reduce((sum, s) => sum + s.samples.length, 0);
+
+                console.log('📂 Training data loaded');
+                console.log(`   Sounds: ${this.sounds.length}`);
+                console.log(`   Samples: ${totalSamples}`);
+
+                showToast(`Loaded ${this.sounds.length} sounds, ${totalSamples} samples`, 'success');
+            } catch (error) {
+                console.error('❌ Failed to load data:', error);
+                showToast('Failed to load training data', 'error');
+            }
+        };
+
+        reader.readAsText(file);
+        event.target.value = ''; // Reset input
+    }
+
+    // ========================================================================
+    // Cleanup
+    // ========================================================================
+
+    destroy() {
+        if (this.audioVisualizer) {
+            this.audioVisualizer.destroy();
+        }
+
+        if (this.audioCollector) {
+            this.audioCollector.disableMicrophone();
+        }
+
+        console.log('🗑️ AudioUIManager destroyed');
+    }
+}
+
+// Global instance (will be initialized when audio tab is active)
+let audioUIManager = null;
