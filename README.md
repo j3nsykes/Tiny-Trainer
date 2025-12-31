@@ -1,6 +1,6 @@
 # BLE Tiny Motion Trainer
 
-A desktop application for training machine learning models with Arduino Nano 33 BLE Sense. Collect sensor data, train models in your browser, and deploy them back to Arduino for on-device inference.
+Inspired by [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer), this is a desktop application for training machine learning models with Arduino Nano 33 BLE Sense. It expands beyond motion sensing to also collect sensor data for colour and motion, train models in your app, and deploy them back to Arduino for standalone on-device classification.
 
 ## Features
 
@@ -45,36 +45,37 @@ Before using the app, you need to upload the multi-sensor streaming sketch to yo
 
 #### Option A: Download Release (Recommended)
 
-1. Go to [Releases](https://github.com/jensykes/BLE_tinyMotionTrainer/releases)
-2. Download the latest version for your platform:
-   - **macOS:** `BLE-Tiny-Motion-Trainer-darwin-x64.zip`
-   - **Windows:** `BLE-Tiny-Motion-Trainer-win32-x64.zip`
-   - **Linux:** `BLE-Tiny-Motion-Trainer-linux-x64.zip`
+1. Go to [Releases](https://github.com/j3nsykes/Tiny-Trainer/releases)
+2. Download the latest version for your Mac:
+   - **Apple Silicon (M1/M2/M3):** `Tiny Trainer-1.0.0-arm64-mac.zip`
+   - **Intel Macs:** `Tiny Trainer-1.0.0-mac.zip`
 3. Extract the ZIP file
-4. Run the application:
-   - **macOS:** Open `BLE Tiny Motion Trainer.app`
-   - **Windows:** Run `BLE Tiny Motion Trainer.exe`
-   - **Linux:** Run `./BLE\ Tiny\ Motion\ Trainer`
+4. Open `Tiny Trainer.app`
+5. If you see a security warning: System Preferences → Security & Privacy → Click "Open Anyway"
 
 #### Option B: Run from Source
 
 1. Clone this repository:
+
    ```bash
-   git clone https://github.com/jensykes/BLE_tinyMotionTrainer.git
-   cd BLE_tinyMotionTrainer
+   git clone https://github.com/j3nsykes/Tiny-Trainer.git
+   cd Tiny-Trainer
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Run the app:
+
    ```bash
    npm start
    ```
 
    Or run in development mode:
+
    ```bash
    npm run dev
    ```
@@ -121,15 +122,18 @@ Before using the app, you need to upload the multi-sensor streaming sketch to yo
 You have three export options:
 
 #### Export Training Data (JSON)
+
 - Saves all your captured samples as JSON
 - Use this to backup your data or share with others
 - Can be imported later to retrain or modify
 
 #### Export Model (TensorFlow.js)
+
 - Downloads your trained model in TensorFlow.js format
 - Use this for web applications or further training
 
 #### Download Arduino Code
+
 - Generates complete Arduino sketch with your trained model embedded
 - Includes all necessary code for on-device inference
 - Upload to Arduino for standalone operation (no computer needed)
@@ -145,6 +149,7 @@ You have three export options:
 ## Troubleshooting
 
 ### Arduino won't connect
+
 - Ensure Bluetooth is enabled on your computer
 - Check Arduino is powered and running the multi-sensor-stream sketch
 - Open Arduino Serial Monitor (115200 baud) - should show "BLE peripheral active"
@@ -152,17 +157,20 @@ You have three export options:
 - Restart the app and try again
 
 ### Connection drops frequently
+
 - Reduce distance between Arduino and computer
 - Close other Bluetooth devices/apps
 - Check Arduino USB power is stable
 
 ### Training accuracy is low
+
 - Collect more samples (aim for 30+ per class)
 - Make gestures more distinct from each other
 - Ensure consistent motion/color presentation during capture
 - Try retraining with a validation split
 
 ### Arduino code won't compile
+
 - Ensure you have all required libraries installed
 - Check you selected the correct board (Arduino Nano 33 BLE)
 - For Rev2 boards, uncomment the Rev2 sensor includes in the code
@@ -210,12 +218,14 @@ BLE_tinyMotionTrainer/
 ## Development
 
 ### Build from source:
+
 ```bash
 npm install
 npm start
 ```
 
 ### Build release packages:
+
 ```bash
 npm run build
 ```
@@ -223,9 +233,11 @@ npm run build
 This creates platform-specific packages in the `release-builds/` directory.
 
 ### Enable debug features:
+
 Edit `public/js/feature-flags.js` and set:
+
 ```javascript
-DEBUG_MODE: true
+DEBUG_MODE: true;
 ```
 
 ## Technical Details
@@ -252,6 +264,7 @@ Issues and pull requests welcome! Please see CONTRIBUTING.md for guidelines.
 ## Support
 
 For questions or issues:
+
 - Open an issue on GitHub
 - Check existing issues for solutions
 - Review the troubleshooting section above
@@ -260,5 +273,5 @@ For questions or issues:
 
 **Version:** 1.0.0
 **Last Updated:** December 2025
-**Compatibility:** macOS, Windows, Linux
+**Compatibility:** macOS
 **Arduino:** Nano 33 BLE Sense (all revisions)
