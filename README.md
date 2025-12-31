@@ -1,4 +1,4 @@
-# BLE Tiny Motion Trainer
+# Tiny Trainer
 
 This app is inspired by [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) with implementation of the BLE connectivity functionality and design forked from [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar). 
 
