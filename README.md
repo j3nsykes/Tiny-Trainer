@@ -181,41 +181,53 @@ You have three export options:
 ## Project Structure
 
 ```
-BLE_tinyMotionTrainer/
+Tiny-Trainer/
 ├── main.js                    # Electron main process
 ├── package.json              # Dependencies and scripts
 ├── preload.js                # Electron preload script
 ├── settings-manager.js       # App settings manager
+├── entitlements.mac.plist    # macOS build entitlements
 │
 ├── public/                   # Frontend code
 │   ├── index.html           # Connection page
 │   ├── trainer.html         # Training interface
 │   ├── client.js            # Main client logic
-│   ├── feature-flags.js     # Feature toggles
+│   ├── ble-bridge.js        # BLE communication bridge
 │   │
 │   ├── css/                 # Stylesheets
-│   │   ├── main.css
-│   │   └── trainer.css
+│   │   ├── trainer.css
+│   │   ├── gestures.css
+│   │   └── toast.css
 │   │
 │   ├── js/                  # JavaScript modules
-│   │   ├── ble-device.js   # BLE device handler
-│   │   ├── gesture-manager.js  # Gesture management
-│   │   ├── data-visualizer.js  # Real-time graphs
+│   │   ├── feature-flags.js     # Feature toggles
+│   │   ├── tab-manager.js       # Tab switching logic
+│   │   ├── toast.js             # Toast notifications
+│   │   ├── trainer-ui.js        # Training UI controller
+│   │   ├── color-visualizer.js  # Color sensor visualization
 │   │   │
-│   │   └── ml/              # Machine learning
+│   │   └── ml/                  # Machine learning
 │   │       ├── ml-trainer.js
-│   │       ├── imu-trainer.js
-│   │       ├── color-trainer.js
-│   │       ├── imu-arduino-generator.js
-│   │       └── color-arduino-generator.js
+│   │       ├── model-builder.js
+│   │       ├── data-processor.js
+│   │       ├── data-collector.js
+│   │       ├── gesture-manager.js
+│   │       ├── color-data-collector.js
+│   │       ├── training-ui.js
+│   │       ├── visualizer.js
+│   │       ├── arduino-generator.js
+│   │       └── audio-*.js       # Audio ML (disabled via feature flags)
 │   │
 │   └── profiles/            # Device profiles
 │       └── nano-ble.json
 │
-└── examples/                # Example code
-    └── Arduino/
-        └── multi-sensor-stream/
-            └── multi-sensor-stream.ino
+├── examples/                # Example code
+│   └── Arduino/
+│       ├── multi-sensor-stream/  # Main sketch (IMU + Color)
+│       ├── imu-sender/           # IMU only
+│       └── imu-sender-9axis/     # 9-axis IMU
+│
+└── assets/                  # Build resources (icons, etc.)
 ```
 
 ## Development
