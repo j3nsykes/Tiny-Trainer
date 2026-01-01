@@ -187,19 +187,14 @@ Tiny-Trainer/
 ├── preload.js                # Electron preload script
 ├── settings-manager.js       # App settings manager
 ├── entitlements.mac.plist    # macOS build entitlements
-├── entitlements.mac.plist    # macOS build entitlements
 │
 ├── public/                   # Frontend code
 │   ├── index.html           # Connection page
 │   ├── trainer.html         # Training interface
 │   ├── client.js            # Main client logic
 │   ├── ble-bridge.js        # BLE communication bridge
-│   ├── ble-bridge.js        # BLE communication bridge
 │   │
 │   ├── css/                 # Stylesheets
-│   │   ├── trainer.css
-│   │   ├── gestures.css
-│   │   └── toast.css
 │   │   ├── trainer.css
 │   │   ├── gestures.css
 │   │   └── toast.css
