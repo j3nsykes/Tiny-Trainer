@@ -174,8 +174,8 @@ class DataCollector {
     }
 
     try {
-      // Add sample to gesture manager
-      this.gestureManager.addSample(this.currentGesture, this.currentSample);
+      // Add sample to gesture manager with metadata
+      this.gestureManager.addSample(this.currentGesture, this.currentSample, { dataType: 'imu' });
 
       this.emit('captureCompleted', {
         gesture: this.currentGesture,

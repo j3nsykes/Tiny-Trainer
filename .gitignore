@@ -13,6 +13,7 @@ out/
 .DS_Store
 .AppleDouble
 .LSOverride
+public/.DS_Store
 
 # Thumbnails
 ._*

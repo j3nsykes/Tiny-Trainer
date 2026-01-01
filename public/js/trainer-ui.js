@@ -27,6 +27,7 @@ let tabMgr;
 
 // Device connection
 let connectedDeviceId = null;
+let isDeviceConnected = false;
 
 // UI State
 let currentRecordingGesture = null;
@@ -124,9 +125,21 @@ function setupEventListeners() {
     gestureManager.setSamplesPerGesture(parseInt(e.target.value));
     updateGestureCards();
   });
-  
+
   document.getElementById('frames-per-sample').addEventListener('change', (e) => {
     gestureManager.setFramesPerSample(parseInt(e.target.value));
+  });
+
+  // Training settings
+  document.getElementById('learning-rate').addEventListener('change', (e) => {
+    const learningRate = parseFloat(e.target.value);
+    console.log(`✅ Learning rate set to: ${learningRate}`);
+    // This will be read during training in startTraining()
+  });
+
+  document.getElementById('data-augmentation-enabled').addEventListener('change', (e) => {
+    const enabled = e.target.checked;
+    dataProcessor.setAugmentation(enabled);
   });
   
   // Training actions
@@ -147,7 +160,57 @@ function setupEventListeners() {
   // Testing controls
   document.getElementById('start-testing-btn').addEventListener('click', startTesting);
   document.getElementById('stop-testing-btn').addEventListener('click', stopTesting);
-  
+
+  // Smoothing controls - only set up if elements exist
+  const smoothingSlider = document.getElementById('smoothing-slider');
+  const smoothingValue = document.getElementById('smoothing-value');
+  const smoothingEnabled = document.getElementById('smoothing-enabled');
+
+  if (smoothingSlider && smoothingValue && smoothingEnabled) {
+    console.log('✅ Smoothing controls found, setting up event listeners');
+
+    smoothingSlider.addEventListener('input', (e) => {
+      try {
+        const alpha = parseInt(e.target.value) / 100;
+        if (smoothingValue) {
+          smoothingValue.textContent = alpha.toFixed(2);
+        }
+        if (mlTrainer && typeof mlTrainer.setSmoothing === 'function') {
+          mlTrainer.setSmoothing(smoothingEnabled.checked, alpha);
+        }
+      } catch (error) {
+        console.error('❌ Smoothing slider error:', error);
+      }
+    });
+
+    smoothingEnabled.addEventListener('change', (e) => {
+      try {
+        const alpha = parseInt(smoothingSlider.value) / 100;
+        if (mlTrainer && typeof mlTrainer.setSmoothing === 'function') {
+          mlTrainer.setSmoothing(e.target.checked, alpha);
+        }
+
+        // Visual feedback
+        if (e.target.checked) {
+          smoothingSlider.disabled = false;
+          smoothingSlider.style.opacity = '1';
+        } else {
+          smoothingSlider.disabled = true;
+          smoothingSlider.style.opacity = '0.5';
+          if (mlTrainer && typeof mlTrainer.resetSmoothing === 'function') {
+            mlTrainer.resetSmoothing();
+          }
+        }
+      } catch (error) {
+        console.error('❌ Smoothing toggle error:', error);
+      }
+    });
+
+    console.log('✅ Smoothing event listeners configured');
+  } else {
+    console.warn('⚠️ Smoothing controls not found in DOM');
+  }
+
   // Close modals on background click
   document.getElementById('add-gesture-modal').addEventListener('click', (e) => {
     if (e.target.id === 'add-gesture-modal') closeAddGestureModal();
@@ -263,6 +326,7 @@ function addGestureCard(gesture) {
       <div class="gesture-menu">
         <button class="menu-btn" onclick="toggleGestureMenu('${gesture.name}')">⋮</button>
         <div class="menu-dropdown" id="menu-${gesture.name}">
+          <button onclick="viewGestureSamples('${gesture.name}')">View Samples</button>
           <button onclick="renameGesture('${gesture.name}')">Rename</button>
           <button onclick="clearGestureSamples('${gesture.name}')">Clear Samples</button>
           <button class="danger" onclick="deleteGesture('${gesture.name}')">Delete</button>
@@ -548,11 +612,13 @@ function updateCaptureStatus(state, text, progress) {
 // Device Status
 // ============================================================================
 
-function updateDeviceStatus(isConnected = true) {
+function updateDeviceStatus(connected = true) {
+  isDeviceConnected = connected; // Track globally for testing checks
+
   const dot = document.getElementById('device-status-dot');
   const nameEl = document.getElementById('device-name');
-  
-  if (isConnected) {
+
+  if (connected) {
     dot.classList.add('connected');
     nameEl.textContent = connectedDeviceId;
   } else {
@@ -717,24 +783,30 @@ function exportTrainingData() {
 async function startTraining() {
   try {
     console.log('🚀 Starting training...');
-    
+
     // Validate we have enough data
     if (!gestureManager.isReadyForTraining()) {
       alert('Not enough training data. Need at least 2 gestures with sufficient samples.');
       return;
     }
-    
-    // Get training configuration (use balanced preset)
+
+    // Get learning rate from UI
+    const learningRateInput = document.getElementById('learning-rate');
+    const learningRate = learningRateInput ? parseFloat(learningRateInput.value) : 0.001;
+
+    // Get training configuration
     const config = {
       preset: 'balanced',
       epochs: 50,
       batchSize: 16,
-      learningRate: 0.001,
+      learningRate: learningRate,
     };
-    
+
+    console.log(`📊 Training config: LR=${learningRate}, Epochs=${config.epochs}, Augmentation=${dataProcessor.augmentationEnabled}`);
+
     // Start training
     await mlTrainer.train(gestureManager, config);
-    
+
   } catch (error) {
     console.error('❌ Training failed:', error);
     alert(`Training failed: ${error.message}`);
@@ -929,11 +1001,41 @@ function startTesting() {
   if (isTestingActive) return;
 
   console.log('🧪 Starting testing mode...');
-  isTestingActive = true;
-  testingBuffer = [];
 
   // Detect data type from training data
   const dataType = mlTrainer.trainingData?.dataType || 'imu';
+
+  // Check if sensor data is streaming for IMU/Color testing
+  if (dataType !== 'audio') {
+    // Check if we're actually receiving sensor data
+    let hasData = false;
+    if (dataType === 'color') {
+      const buffer = colorDataCollector.getCurrentBuffer();
+      hasData = buffer && buffer.length > 0;
+    } else {
+      const buffer = dataCollector.getCurrentBuffer();
+      hasData = buffer && buffer.length > 0;
+    }
+
+    if (!hasData) {
+      // Show error message
+      if (typeof toast !== 'undefined') {
+        toast.error('Please connect your Arduino Nano BLE Sense device to test the model. No sensor data detected.', {
+          title: 'Device Not Connected',
+          duration: 5000
+        });
+      } else {
+        alert('Please connect your Arduino Nano BLE Sense device to test the model. No sensor data detected.');
+      }
+      console.error('❌ Cannot test: No sensor data streaming');
+      console.log('   Data type:', dataType);
+      console.log('   Has data buffer:', hasData);
+      return;
+    }
+  }
+
+  isTestingActive = true;
+  testingBuffer = [];
 
   // Update UI
   document.getElementById('start-testing-btn').style.display = 'none';
@@ -991,7 +1093,15 @@ function stopTesting() {
 }
 
 async function runPrediction() {
-  if (!isTestingActive || !mlTrainer.model) return;
+  if (!isTestingActive) {
+    console.log('⏸ Testing not active, skipping prediction');
+    return;
+  }
+
+  if (!mlTrainer.model) {
+    console.error('❌ No model available for prediction');
+    return;
+  }
 
   // Detect data type from training data
   const dataType = mlTrainer.trainingData?.dataType || 'imu';
@@ -1011,8 +1121,12 @@ async function runPrediction() {
   }
 
   if (!currentData || currentData.length === 0) {
+    console.log('⏸ No sensor data available yet, waiting for data...');
     return; // No data yet
   }
+
+  console.log(`📊 Got ${currentData.length} data points from sensor`);
+
 
   // Get actual sample size from model's input shape (most reliable)
   let targetSize;
@@ -1039,8 +1153,11 @@ async function runPrediction() {
   const minValues = Math.ceil(targetSize * 0.6);
 
   if (currentData.length < minValues) {
+    console.log(`⏳ Waiting for more data: ${currentData.length}/${minValues} needed`);
     return; // Not enough data yet
   }
+
+  console.log(`✅ Sufficient data (${currentData.length}/${targetSize}), running prediction...`);
 
   // Run prediction with available data
   try {
@@ -1329,6 +1446,17 @@ function setupColorEventListeners() {
 
   document.getElementById('color-frames-per-sample').addEventListener('change', (e) => {
     colorDataCollector.setFramesTarget(parseInt(e.target.value));
+  });
+
+  // Color training settings
+  document.getElementById('color-learning-rate').addEventListener('change', (e) => {
+    const learningRate = parseFloat(e.target.value);
+    console.log(`✅ Color learning rate set to: ${learningRate}`);
+  });
+
+  document.getElementById('color-data-augmentation-enabled').addEventListener('change', (e) => {
+    const enabled = e.target.checked;
+    dataProcessor.setAugmentation(enabled);
   });
 
   // Setup color data collector event listeners
@@ -1989,14 +2117,20 @@ async function startColorTraining() {
       return;
     }
 
+    // Get learning rate from UI
+    const learningRateInput = document.getElementById('color-learning-rate');
+    const learningRate = learningRateInput ? parseFloat(learningRateInput.value) : 0.001;
+
     // Get training configuration
     const config = {
       preset: 'balanced',
       epochs: 50,
       batchSize: 16,
-      learningRate: 0.001,
+      learningRate: learningRate,
       dataType: 'color', // Important: tells the system this is color data
     };
+
+    console.log(`📊 Color training config: LR=${learningRate}, Epochs=${config.epochs}, Augmentation=${dataProcessor.augmentationEnabled}`);
 
     // Start training using the existing MLTrainer
     await mlTrainer.train(gestureManager, config);
@@ -2008,3 +2142,142 @@ async function startColorTraining() {
     showNotification(`❌ Training failed: ${error.message}`, 'error');
   }
 }
+
+// ============================================================================
+// Sample Viewer Modal (NEW - Sample-level data management)
+// ============================================================================
+
+let currentViewingGesture = null;
+
+window.viewGestureSamples = function(gestureName) {
+  currentViewingGesture = gestureName;
+  openSampleViewerModal(gestureName);
+};
+
+function openSampleViewerModal(gestureName) {
+  const gesture = gestureManager.getGesture(gestureName);
+  if (!gesture) return;
+
+  // Update modal title
+  document.getElementById('sample-viewer-title').textContent = `Samples: ${gestureName}`;
+
+  // Build sample list
+  const samplesList = document.getElementById('samples-list');
+  samplesList.innerHTML = '';
+
+  if (gesture.samples.length === 0) {
+    samplesList.innerHTML = '<div class="empty-samples">No samples recorded yet</div>';
+  } else {
+    gesture.samples.forEach((sample, index) => {
+      const sampleCard = createSampleCard(sample, index, gestureName);
+      samplesList.appendChild(sampleCard);
+    });
+  }
+
+  // Update sample count in modal
+  document.getElementById('sample-viewer-count').textContent =
+    `${gesture.samples.length} sample${gesture.samples.length !== 1 ? 's' : ''}`;
+
+  // Show modal
+  document.getElementById('sample-viewer-modal').classList.add('active');
+}
+
+function createSampleCard(sample, index, gestureName) {
+  const card = document.createElement('div');
+  card.className = 'sample-card';
+  card.id = `sample-card-${sample.id || index}`;
+
+  // Format timestamp
+  const timestamp = new Date(sample.timestamp);
+  const timeStr = timestamp.toLocaleTimeString();
+
+  // Get preview and stats
+  const preview = sample.preview || 'No preview available';
+  const stats = sample.stats || null;
+
+  card.innerHTML = `
+    <div class="sample-card-header">
+      <div class="sample-number">#${index + 1}</div>
+      <div class="sample-time">${timeStr}</div>
+      <button class="sample-delete-btn" onclick="deleteSampleConfirm('${gestureName}', ${index})">
+        🗑️
+      </button>
+    </div>
+    <div class="sample-preview">
+      <strong>Preview:</strong> ${preview}
+    </div>
+    ${stats ? `
+    <div class="sample-stats">
+      <div class="stat-item">
+        <span class="stat-label">Mean:</span>
+        <span class="stat-value">${stats.mean}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Std:</span>
+        <span class="stat-value">${stats.std}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Range:</span>
+        <span class="stat-value">${stats.min.toFixed(2)} to ${stats.max.toFixed(2)}</span>
+      </div>
+    </div>
+    ` : ''}
+    <div class="sample-type-badge">${sample.dataType || 'imu'}</div>
+  `;
+
+  return card;
+}
+
+function closeSampleViewerModal() {
+  document.getElementById('sample-viewer-modal').classList.remove('active');
+  currentViewingGesture = null;
+}
+
+window.deleteSampleConfirm = function(gestureName, sampleIndex) {
+  if (confirm(`Delete sample #${sampleIndex + 1}?`)) {
+    deleteSample(gestureName, sampleIndex);
+  }
+};
+
+function deleteSample(gestureName, sampleIndex) {
+  try {
+    gestureManager.removeSample(gestureName, sampleIndex);
+
+    // Refresh the sample viewer
+    if (currentViewingGesture === gestureName) {
+      openSampleViewerModal(gestureName);
+    }
+
+    // Update the gesture card
+    updateGestureCard(gestureName);
+    updateTrainingInfo();
+
+    showNotification(`Sample #${sampleIndex + 1} deleted`, 'info');
+  } catch (error) {
+    showNotification(`Failed to delete sample: ${error.message}`, 'error');
+  }
+}
+
+// Add event listeners for sample viewer modal
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('close-sample-viewer');
+  const closeBtnX = document.getElementById('close-sample-viewer-x');
+  const modal = document.getElementById('sample-viewer-modal');
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeSampleViewerModal);
+  }
+
+  if (closeBtnX) {
+    closeBtnX.addEventListener('click', closeSampleViewerModal);
+  }
+
+  // Close on background click
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target.id === 'sample-viewer-modal') {
+        closeSampleViewerModal();
+      }
+    });
+  }
+});

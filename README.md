@@ -1,7 +1,8 @@
 # Tiny Trainer
 
-This app is inspired by [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) with implementation of the BLE connectivity functionality and design forked from [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar). 
+This app is inspired by [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) with implementation of the BLE connectivity functionality and design forked from [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar).
 
+This desktop application can be used to train machine learning models with the Arduino Nano 33 BLE Sense inputs. It expands beyond just motion sensing to also collect sensor data for colour and motion, trains and tests models in the app, and deploys them back to Arduino for standalone, on-device classification.
 This desktop application can be used to train machine learning models with the Arduino Nano 33 BLE Sense inputs. It expands beyond just motion sensing to also collect sensor data for colour and motion, trains and tests models in the app, and deploys them back to Arduino for standalone, on-device classification.
 
 ## Features
@@ -139,7 +140,7 @@ You have three export options:
 - Generates complete Arduino sketch with your trained model embedded
 - Includes all necessary code for on-device inference
 - Upload to Arduino for standalone operation (no computer needed)
-- Generated code includes UART BLE connectivity that is compatible with the Serial-Bridge app for streaming classification results and predictions to other applications (P5JS, Touch Designer etc) and creating larger creative workflows. 
+- Generated code includes UART BLE connectivity that is compatible with the Serial-Bridge app for streaming classification results and predictions to other applications (P5JS, Touch Designer etc) and creating larger creative workflows.
 
 ## Usage Tips
 
@@ -187,14 +188,19 @@ Tiny-Trainer/
 ├── preload.js                # Electron preload script
 ├── settings-manager.js       # App settings manager
 ├── entitlements.mac.plist    # macOS build entitlements
+├── entitlements.mac.plist    # macOS build entitlements
 │
 ├── public/                   # Frontend code
 │   ├── index.html           # Connection page
 │   ├── trainer.html         # Training interface
 │   ├── client.js            # Main client logic
 │   ├── ble-bridge.js        # BLE communication bridge
+│   ├── ble-bridge.js        # BLE communication bridge
 │   │
 │   ├── css/                 # Stylesheets
+│   │   ├── trainer.css
+│   │   ├── gestures.css
+│   │   └── toast.css
 │   │   ├── trainer.css
 │   │   ├── gestures.css
 │   │   └── toast.css
@@ -205,9 +211,24 @@ Tiny-Trainer/
 │   │   ├── toast.js             # Toast notifications
 │   │   ├── trainer-ui.js        # Training UI controller
 │   │   ├── color-visualizer.js  # Color sensor visualization
+│   │   ├── feature-flags.js     # Feature toggles
+│   │   ├── tab-manager.js       # Tab switching logic
+│   │   ├── toast.js             # Toast notifications
+│   │   ├── trainer-ui.js        # Training UI controller
+│   │   ├── color-visualizer.js  # Color sensor visualization
 │   │   │
 │   │   └── ml/                  # Machine learning
+│   │   └── ml/                  # Machine learning
 │   │       ├── ml-trainer.js
+│   │       ├── model-builder.js
+│   │       ├── data-processor.js
+│   │       ├── data-collector.js
+│   │       ├── gesture-manager.js
+│   │       ├── color-data-collector.js
+│   │       ├── training-ui.js
+│   │       ├── visualizer.js
+│   │       ├── arduino-generator.js
+│   │       └── audio-*.js       # Audio ML (disabled via feature flags)
 │   │       ├── model-builder.js
 │   │       ├── data-processor.js
 │   │       ├── data-collector.js
@@ -221,6 +242,13 @@ Tiny-Trainer/
 │   └── profiles/            # Device profiles
 │       └── nano-ble.json
 │
+├── examples/                # Example code
+│   └── Arduino/
+│       ├── multi-sensor-stream/  # Main sketch (IMU + Color)
+│       ├── imu-sender/           # IMU only
+│       └── imu-sender-9axis/     # 9-axis IMU
+│
+└── assets/                  # Build resources (icons, etc.)
 ├── examples/                # Example code
 │   └── Arduino/
 │       ├── multi-sensor-stream/  # Main sketch (IMU + Color)
@@ -266,6 +294,9 @@ DEBUG_MODE: true;
 
 ## Credits
 
+Workflow methods reference [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) and [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar)
+
+Other historical influences for accessible educational machine learning tools: [Teachable Machine](https://teachablemachine.withgoogle.com/) and [Rebecca Fiebrink's Wekinator](https://doc.gold.ac.uk/~mas01rf/Wekinator/)
 Workflow methods reference [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) and [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar)
 
 Other historical influences for accessible educational machine learning tools: [Teachable Machine](https://teachablemachine.withgoogle.com/) and [Rebecca Fiebrink's Wekinator](https://doc.gold.ac.uk/~mas01rf/Wekinator/)

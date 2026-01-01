@@ -9,6 +9,8 @@ class DataProcessor {
   constructor() {
     this.trainingSplit = 0.8; // 80% training, 20% validation
     this.randomSeed = 42;
+    this.augmentationEnabled = false; // Data augmentation off by default
+    this.augmentationNoise = 0.02; // ±1% noise
   }
 
   // ========================================================================
@@ -67,7 +69,7 @@ class DataProcessor {
   normalizeData(samples, dataType = 'imu') {
     console.log('🔧 Normalizing data...');
 
-    const normalized = samples.map(sample => {
+    let normalized = samples.map(sample => {
       return sample.map(value => {
         if (dataType === 'color') {
           // Color data: already in [0, 1] range from sensor
@@ -79,8 +81,33 @@ class DataProcessor {
       });
     });
 
+    // Apply data augmentation if enabled
+    if (this.augmentationEnabled) {
+      console.log('🔧 Applying data augmentation...');
+      normalized = normalized.map(sample => this.augmentSample(sample));
+      console.log('✅ Data augmentation applied');
+    }
+
     console.log('✅ Data normalized');
     return normalized;
+  }
+
+  // ========================================================================
+  // Data Augmentation
+  // ========================================================================
+
+  augmentSample(sample) {
+    // Add small random noise to make model more robust
+    // Helps with subtle gesture differences (e.g., left vs right)
+    return sample.map(val => {
+      const noise = (Math.random() - 0.5) * this.augmentationNoise;
+      return val + noise;
+    });
+  }
+
+  setAugmentation(enabled) {
+    this.augmentationEnabled = enabled;
+    console.log(`✅ Data augmentation: ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   // ========================================================================

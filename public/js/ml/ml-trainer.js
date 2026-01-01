@@ -9,13 +9,13 @@ class MLTrainer {
   constructor(dataProcessor, modelBuilder) {
     this.dataProcessor = dataProcessor;
     this.modelBuilder = modelBuilder;
-    
+
     // Training state
     this.model = null;
     this.trainingData = null;
     this.isTraining = false;
     this.shouldStop = false;
-    
+
     // Training history
     this.history = {
       loss: [],
@@ -24,7 +24,12 @@ class MLTrainer {
       valAccuracy: [],
       epochs: [],
     };
-    
+
+    // Prediction smoothing (EMA)
+    this.smoothingEnabled = true;
+    this.smoothingAlpha = 0.3; // 30% new value, 70% previous (lower = smoother)
+    this.previousProbabilities = null;
+
     // Listeners
     this.listeners = {
       trainingStart: [],
@@ -336,9 +341,22 @@ class MLTrainer {
 
     // Predict
     const prediction = this.model.predict(input);
-    const probabilities = await prediction.data();
+    let probabilities = Array.from(await prediction.data());
 
-    console.log(`   Raw probabilities:`, Array.from(probabilities));
+    console.log(`   Raw probabilities:`, probabilities);
+
+    // Apply EMA smoothing to reduce jitter in real-time predictions
+    if (this.smoothingEnabled && this.previousProbabilities) {
+      const alpha = this.smoothingAlpha;
+      probabilities = probabilities.map((prob, i) =>
+        (alpha * prob) + ((1 - alpha) * this.previousProbabilities[i])
+      );
+      console.log(`   Smoothed probabilities:`, probabilities);
+    }
+
+    // Store for next prediction
+    this.previousProbabilities = probabilities;
+
     console.log(`   All class labels:`, this.trainingData.labels);
 
     // Cleanup
@@ -417,7 +435,24 @@ class MLTrainer {
       hasModel: this.model !== null,
       hasTrainingData: this.trainingData !== null,
       history: this.history,
+      smoothingEnabled: this.smoothingEnabled,
+      smoothingAlpha: this.smoothingAlpha,
     };
+  }
+
+  // ========================================================================
+  // Prediction Smoothing Control
+  // ========================================================================
+
+  setSmoothing(enabled, alpha = 0.3) {
+    this.smoothingEnabled = enabled;
+    this.smoothingAlpha = Math.max(0, Math.min(1, alpha));
+    console.log(`✅ Prediction smoothing: ${enabled ? 'enabled' : 'disabled'} (alpha=${this.smoothingAlpha})`);
+  }
+
+  resetSmoothing() {
+    this.previousProbabilities = null;
+    console.log('✅ Smoothing state reset');
   }
 
   // ========================================================================

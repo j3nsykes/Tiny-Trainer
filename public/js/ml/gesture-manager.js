@@ -127,7 +127,7 @@ class GestureManager {
   // Sample Management
   // ========================================================================
 
-  addSample(gestureName, sampleData) {
+  addSample(gestureName, sampleData, metadata = {}) {
     const gesture = this.getGesture(gestureName);
     if (!gesture) {
       throw new Error('Gesture not found');
@@ -147,12 +147,29 @@ class GestureManager {
       // Don't throw - allow flexible sample sizes for different sensor types
     }
 
-    gesture.samples.push({
+    // Generate sample preview (first few values for display)
+    const preview = this._generateSamplePreview(sampleData, metadata.dataType);
+
+    // Generate unique ID
+    const sampleId = `${gestureName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const sample = {
+      id: sampleId,
       data: sampleData,
       timestamp: Date.now(),
+      dataType: metadata.dataType || 'imu',
+      preview: preview,
+      stats: this._calculateSampleStats(sampleData),
+    };
+
+    gesture.samples.push(sample);
+
+    this.emit('sampleAdded', {
+      gestureName,
+      sampleIndex: gesture.samples.length - 1,
+      sample: sample
     });
 
-    this.emit('sampleAdded', { gestureName, sampleIndex: gesture.samples.length - 1 });
     console.log(`✅ Sample added to "${gestureName}": ${gesture.samples.length}/${this.samplesPerGesture}`);
 
     return gesture.samples.length;
@@ -229,10 +246,21 @@ class GestureManager {
       data.gestures.forEach(g => {
         const gesture = {
           name: g.name,
-          samples: g.samples.map(s => ({
-            data: s,
-            timestamp: Date.now(),
-          })),
+          samples: g.samples.map(s => {
+            // Handle both old format (array) and new format (object with data field)
+            const sampleData = Array.isArray(s) ? s : s.data;
+            const dataType = s.dataType || data.metadata?.dataType || 'imu';
+
+            // Regenerate metadata if importing old format
+            return {
+              id: s.id || `${g.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              data: sampleData,
+              timestamp: s.timestamp || Date.now(),
+              dataType: dataType,
+              preview: s.preview || this._generateSamplePreview(sampleData, dataType),
+              stats: s.stats || this._calculateSampleStats(sampleData),
+            };
+          }),
           createdAt: Date.now(),
         };
         this.gestures.push(gesture);
@@ -322,6 +350,96 @@ class GestureManager {
     if (stats.minSamples === Infinity) stats.minSamples = 0;
 
     return stats;
+  }
+
+  // ========================================================================
+  // Sample Data Management
+  // ========================================================================
+
+  getSample(gestureName, sampleIndex) {
+    const gesture = this.getGesture(gestureName);
+    if (!gesture) return null;
+    return gesture.samples[sampleIndex] || null;
+  }
+
+  getSampleById(sampleId) {
+    for (const gesture of this.gestures) {
+      const sample = gesture.samples.find(s => s.id === sampleId);
+      if (sample) {
+        return { sample, gestureName: gesture.name };
+      }
+    }
+    return null;
+  }
+
+  getAllSamples() {
+    // Return all samples with their gesture labels
+    const allSamples = [];
+    this.gestures.forEach(gesture => {
+      gesture.samples.forEach((sample, index) => {
+        allSamples.push({
+          ...sample,
+          gestureName: gesture.name,
+          gestureIndex: this.gestures.indexOf(gesture),
+          sampleIndex: index,
+        });
+      });
+    });
+    return allSamples;
+  }
+
+  removeSampleById(sampleId) {
+    for (const gesture of this.gestures) {
+      const index = gesture.samples.findIndex(s => s.id === sampleId);
+      if (index !== -1) {
+        this.removeSample(gesture.name, index);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ========================================================================
+  // Sample Preview & Statistics
+  // ========================================================================
+
+  _generateSamplePreview(sampleData, dataType = 'imu') {
+    // Generate human-readable preview of sample data
+    const previewLength = 6; // Show first 6 values
+    const values = sampleData.slice(0, previewLength);
+
+    if (dataType === 'imu') {
+      // IMU data: ax, ay, az, gx, gy, gz, mx, my, mz
+      const labels = ['ax', 'ay', 'az', 'gx', 'gy', 'gz', 'mx', 'my', 'mz'];
+      return values.map((v, i) => `${labels[i] || 'v' + i}: ${v.toFixed(2)}`).join(', ');
+    } else if (dataType === 'color') {
+      // Color data: r, g, b, c, lux (or similar)
+      const labels = ['r', 'g', 'b', 'c', 'lux'];
+      return values.map((v, i) => `${labels[i] || 'c' + i}: ${v.toFixed(3)}`).join(', ');
+    } else {
+      // Generic preview
+      return values.map((v, i) => `${i}: ${v.toFixed(3)}`).join(', ');
+    }
+  }
+
+  _calculateSampleStats(sampleData) {
+    // Calculate basic statistics for quality checking
+    const sum = sampleData.reduce((a, b) => a + b, 0);
+    const mean = sum / sampleData.length;
+
+    const variance = sampleData.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / sampleData.length;
+    const std = Math.sqrt(variance);
+
+    const min = Math.min(...sampleData);
+    const max = Math.max(...sampleData);
+
+    return {
+      mean: parseFloat(mean.toFixed(4)),
+      std: parseFloat(std.toFixed(4)),
+      min: parseFloat(min.toFixed(4)),
+      max: parseFloat(max.toFixed(4)),
+      range: parseFloat((max - min).toFixed(4)),
+    };
   }
 
   // ========================================================================

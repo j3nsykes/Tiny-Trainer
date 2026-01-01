@@ -210,8 +210,8 @@ class ColorDataCollector {
     }
 
     try {
-      // Add sample to gesture manager (reuses same storage)
-      this.gestureManager.addSample(this.currentColor, this.currentSample);
+      // Add sample to gesture manager with metadata
+      this.gestureManager.addSample(this.currentColor, this.currentSample, { dataType: 'color' });
 
       this.emit('captureCompleted', {
         color: this.currentColor,
