@@ -217,17 +217,7 @@ Tiny-Trainer/
 │   │   ├── color-visualizer.js  # Color sensor visualization
 │   │   │
 │   │   └── ml/                  # Machine learning
-│   │   └── ml/                  # Machine learning
 │   │       ├── ml-trainer.js
-│   │       ├── model-builder.js
-│   │       ├── data-processor.js
-│   │       ├── data-collector.js
-│   │       ├── gesture-manager.js
-│   │       ├── color-data-collector.js
-│   │       ├── training-ui.js
-│   │       ├── visualizer.js
-│   │       ├── arduino-generator.js
-│   │       └── audio-*.js       # Audio ML (disabled via feature flags)
 │   │       ├── model-builder.js
 │   │       ├── data-processor.js
 │   │       ├── data-collector.js
@@ -244,15 +234,6 @@ Tiny-Trainer/
 ├── examples/                # Example code
 │   └── Arduino/
 │       ├── multi-sensor-stream/  # Main sketch (IMU + Color)
-│       ├── imu-sender/           # IMU only
-│       └── imu-sender-9axis/     # 9-axis IMU
-│
-└── assets/                  # Build resources (icons, etc.)
-├── examples/                # Example code
-│   └── Arduino/
-│       ├── multi-sensor-stream/  # Main sketch (IMU + Color)
-│       ├── imu-sender/           # IMU only
-│       └── imu-sender-9axis/     # 9-axis IMU
 │
 └── assets/                  # Build resources (icons, etc.)
 ```
@@ -293,9 +274,6 @@ DEBUG_MODE: true;
 
 ## Credits
 
-Workflow methods reference [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) and [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar)
-
-Other historical influences for accessible educational machine learning tools: [Teachable Machine](https://teachablemachine.withgoogle.com/) and [Rebecca Fiebrink's Wekinator](https://doc.gold.ac.uk/~mas01rf/Wekinator/)
 Workflow methods reference [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) and [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar)
 
 Other historical influences for accessible educational machine learning tools: [Teachable Machine](https://teachablemachine.withgoogle.com/) and [Rebecca Fiebrink's Wekinator](https://doc.gold.ac.uk/~mas01rf/Wekinator/)
