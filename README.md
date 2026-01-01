@@ -3,7 +3,6 @@
 This app is inspired by [Google Creative Lab's Tiny Motion Trainer](https://experiments.withgoogle.com/tiny-motion-trainer) with implementation of the BLE connectivity functionality and design forked from [Irti Nasar's Serial Bridge app](https://github.com/IrtizaNasar).
 
 This desktop application can be used to train machine learning models with the Arduino Nano 33 BLE Sense inputs. It expands beyond just motion sensing to also collect sensor data for colour and motion, trains and tests models in the app, and deploys them back to Arduino for standalone, on-device classification.
-This desktop application can be used to train machine learning models with the Arduino Nano 33 BLE Sense inputs. It expands beyond just motion sensing to also collect sensor data for colour and motion, trains and tests models in the app, and deploys them back to Arduino for standalone, on-device classification.
 
 ## Features
 

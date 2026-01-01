@@ -1,7 +1,7 @@
 {
   "name": "tiny-trainer",
   "productName": "Tiny Trainer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Train TensorFlow Lite models for Arduino Nano BLE Sense wirelessly",
   "main": "main.js",
   "author": {
