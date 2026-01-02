@@ -357,25 +357,40 @@ class MLTrainer {
     // Store for next prediction
     this.previousProbabilities = probabilities;
 
-    console.log(`   All class labels:`, this.trainingData.labels);
-
     // Cleanup
     input.dispose();
     prediction.dispose();
 
-    // Get predicted class
-    const predictedClass = probabilities.indexOf(Math.max(...probabilities));
-    const confidence = probabilities[predictedClass];
+    // Check if this is regression mode
+    const isRegression = dataType === 'imu-regression';
 
-    console.log(`   Predicted class index: ${predictedClass} (${this.trainingData.labels[predictedClass]})`);
-    console.log(`   Confidence: ${(confidence * 100).toFixed(1)}%`);
+    if (isRegression) {
+      // Regression mode: return continuous outputs
+      console.log(`   Regression outputs:`, probabilities);
+      console.log(`   Output labels:`, this.trainingData.outputLabels);
 
-    return {
-      predictedClass: predictedClass,
-      predictedLabel: this.trainingData.labels[predictedClass],
-      confidence: confidence,
-      probabilities: Array.from(probabilities),
-    };
+      return {
+        outputs: Array.from(probabilities),
+        outputLabels: this.trainingData.outputLabels || [],
+      };
+    } else {
+      // Classification mode: return class probabilities
+      console.log(`   All class labels:`, this.trainingData.labels);
+
+      // Get predicted class
+      const predictedClass = probabilities.indexOf(Math.max(...probabilities));
+      const confidence = probabilities[predictedClass];
+
+      console.log(`   Predicted class index: ${predictedClass} (${this.trainingData.labels[predictedClass]})`);
+      console.log(`   Confidence: ${(confidence * 100).toFixed(1)}%`);
+
+      return {
+        predictedClass: predictedClass,
+        predictedLabel: this.trainingData.labels[predictedClass],
+        confidence: confidence,
+        probabilities: Array.from(probabilities),
+      };
+    }
   }
 
   // ========================================================================
@@ -453,6 +468,192 @@ class MLTrainer {
   resetSmoothing() {
     this.previousProbabilities = null;
     console.log('✅ Smoothing state reset');
+  }
+
+  // ========================================================================
+  // Train Regression Model
+  // ========================================================================
+
+  async trainRegression(regressionSamples, config = {}, outputLabels = []) {
+    if (this.isTraining) {
+      throw new Error('Training already in progress');
+    }
+
+    this.isTraining = true;
+    this.shouldStop = false;
+    this.history = {
+      loss: [],
+      mae: [],       // Mean Absolute Error instead of accuracy
+      valLoss: [],
+      valMae: [],
+      epochs: [],
+    };
+
+    try {
+      console.log('🔄 Starting regression model training...');
+
+      // Prepare regression data
+      const preparedData = this.dataProcessor.prepareRegressionData(regressionSamples);
+
+      console.log('📊 Training data prepared');
+      console.log(`   Input shape: [${preparedData.inputShape}]`);
+      console.log(`   Output dimensions: ${preparedData.numOutputs}`);
+      console.log(`   Output labels: ${outputLabels.join(', ')}`);
+
+      // Store training data with output labels
+      this.trainingData = {
+        ...preparedData,
+        outputLabels: outputLabels,
+      };
+
+      // Build regression model
+      const modelConfig = {
+        hiddenUnits1: config.hiddenUnits1 || 50,
+        hiddenUnits2: config.hiddenUnits2 || 15,
+        dropoutRate: config.dropoutRate || 0.2,
+        learningRate: config.learningRate || 0.001,
+      };
+
+      this.model = this.modelBuilder.buildRegressionModel(
+        preparedData.inputShape,
+        preparedData.numOutputs,
+        modelConfig
+      );
+
+      // Create regression tensors
+      const tensors = this.dataProcessor.createRegressionTensors(preparedData);
+
+      // Emit training start
+      this.emit('trainingStart', {
+        mode: 'regression',
+        sampleCount: regressionSamples.length,
+        outputCount: preparedData.numOutputs,
+        trainingSize: tensors.trainX.shape[0],
+        validationSize: tensors.valX.shape[0],
+        config: {
+          epochs: config.epochs || 50,
+          batchSize: config.batchSize || 16,
+          learningRate: config.learningRate || 0.001,
+        },
+      });
+
+      // Training configuration
+      const trainingConfig = {
+        epochs: config.epochs || 50,
+        batchSize: config.batchSize || 16,
+        validationData: [tensors.valX, tensors.valY],
+        shuffle: true,
+        callbacks: {
+          onEpochBegin: async (epoch) => {
+            if (this.shouldStop) {
+              this.model.stopTraining = true;
+            }
+            this.emit('epochBegin', { epoch });
+          },
+          onEpochEnd: async (epoch, logs) => {
+            this.history.epochs.push(epoch);
+            this.history.loss.push(logs.loss);
+            this.history.mae.push(logs.mae);
+            this.history.valLoss.push(logs.val_loss);
+            this.history.valMae.push(logs.val_mae);
+
+            console.log(`   Epoch ${epoch + 1}: loss=${logs.loss.toFixed(4)}, mae=${logs.mae.toFixed(4)}, val_mae=${logs.val_mae.toFixed(4)}`);
+
+            this.emit('epochEnd', {
+              epoch,
+              totalEpochs: config.epochs || 50,
+              loss: logs.loss,
+              mae: logs.mae,
+              valLoss: logs.val_loss,
+              valMae: logs.val_mae,
+              history: this.history,
+            });
+          },
+          onBatchEnd: async (batch, logs) => {
+            this.emit('batchEnd', { batch, logs });
+          },
+        },
+      };
+
+      // Train model
+      console.log('🚀 Starting regression training...');
+      await this.model.fit(tensors.trainX, tensors.trainY, trainingConfig);
+
+      // Cleanup tensors
+      tensors.trainX.dispose();
+      tensors.trainY.dispose();
+      tensors.valX.dispose();
+      tensors.valY.dispose();
+
+      console.log('✅ Regression training complete!');
+      console.log(`   Final MAE: ${this.history.mae[this.history.mae.length - 1].toFixed(4)}`);
+      console.log(`   Final Val MAE: ${this.history.valMae[this.history.valMae.length - 1].toFixed(4)}`);
+
+      // Create evaluation object compatible with TrainingUI
+      const evaluation = {
+        mae: this.history.mae[this.history.mae.length - 1],
+        valMae: this.history.valMae[this.history.valMae.length - 1],
+        loss: this.history.loss[this.history.loss.length - 1],
+        valLoss: this.history.valLoss[this.history.valLoss.length - 1],
+        isRegression: true,  // Flag to indicate this is regression, not classification
+      };
+
+      this.emit('trainingEnd', {
+        history: this.history,
+        evaluation: evaluation,
+        stopped: this.shouldStop,
+      });
+
+    } catch (error) {
+      console.error('❌ Regression training failed:', error);
+      this.emit('trainingError', { error });
+      throw error;
+    } finally {
+      this.isTraining = false;
+    }
+  }
+
+  // ========================================================================
+  // Predict Regression (Continuous Outputs)
+  // ========================================================================
+
+  async predictRegression(sampleData) {
+    if (!this.model) {
+      throw new Error('No model loaded for regression prediction');
+    }
+
+    console.log('🔄 Running regression prediction...');
+
+    // Normalize input data
+    const processedSample = this.dataProcessor.normalizeData([sampleData], 'imu')[0];
+
+    // Create tensor
+    const input = tf.tensor2d([processedSample]);
+    console.log(`   Input tensor shape: [${input.shape}]`);
+
+    // Predict
+    const prediction = this.model.predict(input);
+    let outputs = Array.from(await prediction.data());
+
+    console.log(`   Raw outputs:`, outputs);
+
+    // Apply smoothing if enabled
+    if (this.smoothingEnabled && this.previousProbabilities) {
+      const alpha = this.smoothingAlpha;
+      outputs = outputs.map((val, i) =>
+        (alpha * val) + ((1 - alpha) * this.previousProbabilities[i])
+      );
+      console.log(`   Smoothed outputs:`, outputs);
+    }
+
+    // Store for next prediction
+    this.previousProbabilities = outputs;
+
+    // Cleanup
+    input.dispose();
+    prediction.dispose();
+
+    return outputs;
   }
 
   // ========================================================================

@@ -16,6 +16,9 @@ let colorVisualizer;
 // Audio tab components
 let audioUIManager;
 
+// Regression components
+let regressionUI;
+
 // ML Training components
 let dataProcessor;
 let modelBuilder;
@@ -54,6 +57,10 @@ document.addEventListener('DOMContentLoaded', () => {
   bridge = new BLEBridge();
   dataCollector = new DataCollector(bridge, gestureManager);
   visualizer = new IMUVisualizer('preview-canvas');
+
+  // Initialize regression UI
+  regressionUI = new RegressionUI();
+  regressionUI.setDataCollector(dataCollector);
 
   // Initialize color components
   colorDataCollector = new ColorDataCollector(bridge, gestureManager);
@@ -146,7 +153,11 @@ function setupEventListeners() {
   document.getElementById('load-data-btn').addEventListener('click', loadTrainingData);
   document.getElementById('export-data-btn').addEventListener('click', exportTrainingData);
   document.getElementById('train-model-btn').addEventListener('click', startTraining);
-  
+
+  // Regression export/import buttons
+  document.getElementById('load-regression-data-btn').addEventListener('click', loadRegressionData);
+  document.getElementById('export-regression-data-btn').addEventListener('click', exportRegressionData);
+
   // Hidden file input
   document.getElementById('load-data-input').addEventListener('change', handleLoadDataFile);
   
@@ -632,23 +643,42 @@ function updateDeviceStatus(connected = true) {
 // ============================================================================
 
 function updateTrainingInfo() {
-  const info = gestureManager.getTrainingInfo();
   const infoEl = document.getElementById('training-info-text');
-  const exportBtn = document.getElementById('export-data-btn');
   const trainBtn = document.getElementById('train-model-btn');
-  
-  if (info.readyForTraining) {
-    infoEl.textContent = `Ready to train! ${info.totalSamples} samples across ${info.numGestures} gestures`;
-    exportBtn.disabled = false;
-    trainBtn.disabled = false;
-  } else if (info.numGestures < 2) {
-    infoEl.textContent = `Add at least 2 gestures to train`;
-    exportBtn.disabled = true;
-    trainBtn.disabled = true;
+
+  // Check current mode
+  const mode = regressionUI.getMode();
+
+  if (mode === 'regression') {
+    // Regression mode
+    const regressionManager = regressionUI.getRegressionManager();
+    const info = regressionManager.getTrainingInfo();
+
+    if (info.readyForTraining) {
+      infoEl.textContent = `Ready to train! ${info.sampleCount} regression samples collected`;
+      trainBtn.disabled = false;
+    } else {
+      infoEl.textContent = `Collect more samples (${info.sampleCount}/${info.minSamples} minimum)`;
+      trainBtn.disabled = true;
+    }
   } else {
-    infoEl.textContent = `Collect more samples (${info.totalSamples}/${info.targetSamples})`;
-    exportBtn.disabled = true;
-    trainBtn.disabled = true;
+    // Classification mode
+    const info = gestureManager.getTrainingInfo();
+    const exportBtn = document.getElementById('export-data-btn');
+
+    if (info.readyForTraining) {
+      infoEl.textContent = `Ready to train! ${info.totalSamples} samples across ${info.numGestures} gestures`;
+      if (exportBtn) exportBtn.disabled = false;
+      trainBtn.disabled = false;
+    } else if (info.numGestures < 2) {
+      infoEl.textContent = `Add at least 2 gestures to train`;
+      if (exportBtn) exportBtn.disabled = true;
+      trainBtn.disabled = true;
+    } else {
+      infoEl.textContent = `Collect more samples (${info.totalSamples}/${info.targetSamples})`;
+      if (exportBtn) exportBtn.disabled = true;
+      trainBtn.disabled = true;
+    }
   }
 }
 
@@ -777,6 +807,30 @@ function exportTrainingData() {
 }
 
 // ============================================================================
+// Regression Export/Import
+// ============================================================================
+
+function loadRegressionData() {
+  // Create hidden file input
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+
+  input.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      regressionUI.importData(file);
+    }
+  });
+
+  input.click();
+}
+
+function exportRegressionData() {
+  regressionUI.exportData();
+}
+
+// ============================================================================
 // Training Actions
 // ============================================================================
 
@@ -784,28 +838,62 @@ async function startTraining() {
   try {
     console.log('🚀 Starting training...');
 
-    // Validate we have enough data
-    if (!gestureManager.isReadyForTraining()) {
-      alert('Not enough training data. Need at least 2 gestures with sufficient samples.');
-      return;
+    // Check if we're in regression mode
+    const mode = regressionUI.getMode();
+
+    if (mode === 'regression') {
+      // Regression training
+      const regressionManager = regressionUI.getRegressionManager();
+
+      // Validate we have enough samples
+      if (!regressionManager.isReadyForTraining()) {
+        alert('Not enough training data. Need at least 20 regression samples.');
+        return;
+      }
+
+      // Get learning rate from UI
+      const learningRateInput = document.getElementById('learning-rate');
+      const learningRate = learningRateInput ? parseFloat(learningRateInput.value) : 0.001;
+
+      // Get training configuration
+      const config = {
+        epochs: 50,
+        batchSize: 16,
+        learningRate: learningRate,
+      };
+
+      console.log(`📊 Regression training config: LR=${learningRate}, Epochs=${config.epochs}`);
+
+      // Start regression training with output labels
+      const samples = regressionManager.getAllSamples();
+      const outputLabels = regressionManager.getOutputLabels();
+      await mlTrainer.trainRegression(samples, config, outputLabels);
+
+    } else {
+      // Classification training
+      // Validate we have enough data
+      if (!gestureManager.isReadyForTraining()) {
+        alert('Not enough training data. Need at least 2 gestures with sufficient samples.');
+        return;
+      }
+
+      // Get learning rate from UI
+      const learningRateInput = document.getElementById('learning-rate');
+      const learningRate = learningRateInput ? parseFloat(learningRateInput.value) : 0.001;
+
+      // Get training configuration
+      const config = {
+        preset: 'balanced',
+        epochs: 50,
+        batchSize: 16,
+        learningRate: learningRate,
+      };
+
+      console.log(`📊 Training config: LR=${learningRate}, Epochs=${config.epochs}, Augmentation=${dataProcessor.augmentationEnabled}`);
+
+      // Start classification training
+      await mlTrainer.train(gestureManager, config);
     }
-
-    // Get learning rate from UI
-    const learningRateInput = document.getElementById('learning-rate');
-    const learningRate = learningRateInput ? parseFloat(learningRateInput.value) : 0.001;
-
-    // Get training configuration
-    const config = {
-      preset: 'balanced',
-      epochs: 50,
-      batchSize: 16,
-      learningRate: learningRate,
-    };
-
-    console.log(`📊 Training config: LR=${learningRate}, Epochs=${config.epochs}, Augmentation=${dataProcessor.augmentationEnabled}`);
-
-    // Start training
-    await mlTrainer.train(gestureManager, config);
 
   } catch (error) {
     console.error('❌ Training failed:', error);
@@ -837,6 +925,8 @@ async function exportModel() {
       modelType = 'color';
     } else if (dataType === 'audio') {
       modelType = 'audio';
+    } else if (dataType === 'imu-regression') {
+      modelType = 'regression';
     } else {
       modelType = 'gesture';
     }
@@ -884,30 +974,31 @@ async function downloadModelForArduino() {
     // Detect data type first
     const dataType = mlTrainer.trainingData?.dataType || 'imu';
 
-    // Get labels based on data type
-    let labels;
-    if (dataType === 'audio') {
-      // For audio, get labels from training data
-      labels = mlTrainer.trainingData.labels;
-      console.log('   Audio labels:', labels);
-    } else {
-      // For IMU/Color, get labels from gesture manager
-      labels = gestureManager.getAllGestures().map(g => g.name);
-    }
-
     // Create appropriate Arduino generator based on data type
     let generator;
     let files;
 
-    if (dataType === 'audio') {
+    if (dataType === 'imu-regression') {
+      // Regression model
+      console.log('   Using ArduinoRegressionGenerator for regression model');
+      const outputLabels = mlTrainer.trainingData.outputLabels || [];
+      generator = new ArduinoRegressionGenerator();
+      await generator.convertModel(mlTrainer.model, outputLabels);
+      files = generator.generateArduinoCode();
+
+    } else if (dataType === 'audio') {
       // Use specialized audio generator with full CNN inference
       console.log('   Using AudioArduinoGenerator for full CNN model');
+      const labels = mlTrainer.trainingData.labels;
+      console.log('   Audio labels:', labels);
       generator = new AudioArduinoGenerator();
       await generator.convertModel(mlTrainer.model, labels);
       files = generator.generateArduinoLibrary();
+
     } else {
-      // Use standard generator for IMU and Color
+      // Use standard generator for IMU and Color classification
       console.log('   Using ArduinoModelGenerator for standard model');
+      const labels = gestureManager.getAllGestures().map(g => g.name);
       generator = new ArduinoModelGenerator();
       await generator.convertToTFLite(mlTrainer.model, labels, dataType);
       files = generator.generateArduinoCode();
@@ -930,6 +1021,8 @@ async function downloadModelForArduino() {
       modelType = 'color';
     } else if (dataType === 'audio') {
       modelType = 'audio';
+    } else if (dataType === 'imu-regression') {
+      modelType = 'regression';
     } else {
       modelType = 'gesture';
     }

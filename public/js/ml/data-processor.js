@@ -76,7 +76,9 @@ class DataProcessor {
           return Math.max(0, Math.min(1, value));
         } else {
           // IMU data: normalize to [-1, 1] range
-          return Math.max(-1, Math.min(1, value));
+          // Constrain to ±4, then divide by 4 (matches Arduino inference)
+          const clamped = Math.max(-4, Math.min(4, value));
+          return clamped / 4.0;
         }
       });
     });
@@ -177,18 +179,35 @@ class DataProcessor {
 
   createTensors(data) {
     console.log('🔧 Creating TensorFlow tensors...');
-    
+
     const trainX = tf.tensor2d(data.trainX);
     const trainY = tf.tensor2d(this.oneHotEncode(data.trainY, data.numClasses));
     const valX = tf.tensor2d(data.valX);
     const valY = tf.tensor2d(this.oneHotEncode(data.valY, data.numClasses));
-    
+
     console.log('✅ Tensors created');
     console.log(`   trainX shape: [${trainX.shape}]`);
     console.log(`   trainY shape: [${trainY.shape}]`);
     console.log(`   valX shape: [${valX.shape}]`);
     console.log(`   valY shape: [${valY.shape}]`);
-    
+
+    return { trainX, trainY, valX, valY };
+  }
+
+  createRegressionTensors(data) {
+    console.log('🔧 Creating regression TensorFlow tensors...');
+
+    const trainX = tf.tensor2d(data.trainX);
+    const trainY = tf.tensor2d(data.trainY);  // No one-hot encoding for regression
+    const valX = tf.tensor2d(data.valX);
+    const valY = tf.tensor2d(data.valY);      // Raw continuous values
+
+    console.log('✅ Regression tensors created');
+    console.log(`   trainX shape: [${trainX.shape}]`);
+    console.log(`   trainY shape: [${trainY.shape}]`);
+    console.log(`   valX shape: [${valX.shape}]`);
+    console.log(`   valY shape: [${valY.shape}]`);
+
     return { trainX, trainY, valX, valY };
   }
 
@@ -256,6 +275,85 @@ class DataProcessor {
       valid: errors.length === 0,
       errors: errors,
     };
+  }
+
+  // ========================================================================
+  // Regression Data Preparation
+  // ========================================================================
+
+  prepareRegressionData(regressionSamples) {
+    // Prepare data for regression training
+    // regressionSamples = [{ data: [...], outputs: [val1, val2, ...] }, ...]
+
+    console.log('📊 Preparing regression data...');
+    console.log(`   Total samples: ${regressionSamples.length}`);
+
+    if (regressionSamples.length < 10) {
+      throw new Error('Need at least 10 samples for regression training');
+    }
+
+    // Extract input data and output values
+    const allInputs = regressionSamples.map(s => s.data);
+    const allOutputs = regressionSamples.map(s => s.outputs);
+
+    // Debug: Log first few output values
+    console.log('📊 First 5 raw output values:', allOutputs.slice(0, 5));
+
+    // Normalize input data (same as classification)
+    const normalizedInputs = this.normalizeData(allInputs, 'imu');
+
+    // Pass through output values (no normalization needed for 0-1 range)
+    const normalizedOutputs = this.normalizeRegressionOutputs(allOutputs);
+
+    // Debug: Log first few normalized output values
+    console.log('📊 First 5 normalized output values:', normalizedOutputs.slice(0, 5));
+
+    // Split into train/validation
+    const split = this.splitRegressionData(normalizedInputs, normalizedOutputs);
+
+    console.log(`   Training samples: ${split.trainX.length}`);
+    console.log(`   Validation samples: ${split.valX.length}`);
+    console.log(`   Output dimensions: ${split.trainY[0].length}`);
+
+    return {
+      trainX: split.trainX,
+      trainY: split.trainY,
+      valX: split.valX,
+      valY: split.valY,
+      numOutputs: split.trainY[0].length,
+      inputShape: [normalizedInputs[0].length],
+      dataType: 'imu-regression',
+    };
+  }
+
+  normalizeRegressionOutputs(outputs) {
+    // Outputs are in [0, 1] range from UI sliders
+    // No normalization needed - pass through as-is for regression
+    // Model will learn to predict values in the same range as training data
+    return outputs;
+  }
+
+  splitRegressionData(inputs, outputs) {
+    // Create indices array
+    const indices = Array.from({ length: inputs.length }, (_, i) => i);
+
+    // Shuffle with seed for reproducibility
+    this.shuffleArray(indices, this.randomSeed);
+
+    // Calculate split point
+    const splitIndex = Math.floor(inputs.length * this.trainingSplit);
+
+    // Split indices
+    const trainIndices = indices.slice(0, splitIndex);
+    const valIndices = indices.slice(splitIndex);
+
+    // Split data
+    const trainX = trainIndices.map(i => inputs[i]);
+    const trainY = trainIndices.map(i => outputs[i]);
+    const valX = valIndices.map(i => inputs[i]);
+    const valY = valIndices.map(i => outputs[i]);
+
+    return { trainX, trainY, valX, valY };
   }
 }
 

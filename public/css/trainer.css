@@ -35,11 +35,17 @@ body {
     background: #0f0a1f;
     border-bottom: 1px solid #2a1a4a;
     display: flex;
-    gap: 0;
+    justify-content: space-between;
+    align-items: stretch;
     padding: 0 24px;
     position: sticky;
     top: 50px;
     z-index: 99;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 0;
 }
 
 .tab-btn {
@@ -190,20 +196,30 @@ section {
 
 .settings-controls {
     display: flex;
-    gap: 24px;
-    align-items: center;
+    gap: 32px;
+    align-items: flex-start;
+    width: 100%;
 }
 
-.settings-controls label {
+.setting-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
-    font-size: 13px;
-    color: #a0a0d0;
+    flex-direction: row;
 }
 
 .setting-label {
-    min-width: 140px;
+    font-size: 13px;
+    color: #a0a0d0;
+    white-space: nowrap;
+    padding-top: 6px;
+    min-width: fit-content;
+}
+
+.setting-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .settings-controls input[type="number"] {
@@ -228,18 +244,12 @@ section {
     width: 90px;
 }
 
-/* Settings Toggle Control */
-.setting-label-toggle {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: flex-start !important;
-}
-
-.toggle-help-text {
+/* Setting Help Text */
+.setting-help-text {
     font-size: 11px;
     color: #7c7c9c;
-    margin-left: 0;
+    line-height: 1.4;
+    max-width: 100%;
 }
 
 /* Gestures Section */
@@ -952,6 +962,56 @@ section {
     color: #00ff88;
 }
 
+/* Regression Outputs */
+.regression-outputs {
+    background: #0f0a1f;
+    border: 1px solid #2a1a4a;
+    border-radius: 6px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.regression-output-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.regression-output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.regression-output-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e0e0e0;
+}
+
+.regression-output-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #00ff88;
+    font-family: 'Courier New', monospace;
+}
+
+.regression-output-bar {
+    height: 8px;
+    background: #2a1a4a;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.regression-output-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c4dff, #00ff88);
+    transition: width 0.2s ease;
+}
+
 /* Testing Controls */
 .testing-controls {
     display: flex;
@@ -1421,6 +1481,7 @@ section {
     display: inline-block;
     width: 44px;
     height: 24px;
+    flex-shrink: 0;
 }
 
 .toggle-switch input {
@@ -1466,4 +1527,415 @@ input:checked + .toggle-slider:before {
 
 .toggle-slider:hover {
     box-shadow: 0 0 8px rgba(124, 77, 255, 0.3);
+}
+/* ============================================================================
+   Regression Mode Styles
+   ============================================================================ */
+
+/* Mode Toggle in Tab Navigation */
+.mode-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(124, 77, 255, 0.05);
+    border-radius: 8px;
+}
+
+.mode-toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #a0a0d0;
+    letter-spacing: 0.5px;
+}
+
+.mode-select-compact {
+    background: #2a1a4a;
+    border: 1px solid #4a3a7a;
+    color: #e0e0e0;
+    padding: 6px 28px 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a0d0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 14px;
+}
+
+.mode-select-compact:hover {
+    border-color: #7c4dff;
+    box-shadow: 0 0 0 2px rgba(124, 77, 255, 0.1);
+}
+
+.mode-select-compact:focus {
+    outline: none;
+    border-color: #7c4dff;
+    box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.2);
+}
+
+/* Regression Section */
+.regression-section {
+    padding: 12px 14px;
+    background: transparent;
+    margin-bottom: 16px;
+}
+
+.regression-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(124, 77, 255, 0.1);
+    border: 1px solid rgba(124, 77, 255, 0.2);
+    border-radius: 6px;
+    margin-top: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.info-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.info-text {
+    font-size: 12px;
+    color: #c0c0e0;
+    line-height: 1.5;
+}
+
+/* Regression Content - Horizontal Layout */
+.regression-content {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+/* Left: Parameters (2/3 width) */
+.regression-parameters {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Right: Sidebar (1/3 width) */
+.regression-sidebar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Regression Parameter Card */
+.regression-card {
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease;
+}
+
+.regression-card:hover {
+    border-color: #4a3a7a;
+}
+
+/* Parameter Header */
+.parameter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.parameter-name-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.parameter-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e0e0e0;
+}
+
+.parameter-sample-count {
+    font-size: 11px;
+    color: #808090;
+    font-family: 'Courier New', monospace;
+}
+
+.parameter-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-rename-parameter,
+.btn-remove-parameter {
+    background: transparent;
+    border: none;
+    color: #808090;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.btn-rename-parameter:hover {
+    background: rgba(124, 77, 255, 0.1);
+    color: #7c4dff;
+}
+
+.btn-remove-parameter:hover {
+    background: rgba(255, 77, 124, 0.1);
+    color: #ff4d7c;
+}
+
+/* Slider Container */
+.slider-container {
+    margin-bottom: 14px;
+}
+
+.slider-visualization {
+    height: 8px;
+    background: #2a1a4a;
+    border-radius: 4px;
+    position: relative;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+/* Target indicator (white dot) */
+.target-indicator {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    background: white;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: left 0.1s ease;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* Prediction indicator (green line) - shown during testing */
+.prediction-indicator {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #10b981;
+    transform: translateX(-50%);
+    transition: left 0.075s ease;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+/* Range Slider */
+.parameter-slider {
+    width: 100%;
+    height: 4px;
+    background: #2a1a4a;
+    border-radius: 2px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.parameter-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.parameter-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.parameter-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.parameter-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Slider Labels */
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 10px;
+    color: #808090;
+    font-family: 'Courier New', monospace;
+}
+
+.slider-label-left,
+.slider-label-right {
+    color: #606070;
+}
+
+.slider-label-center {
+    color: #c0c0e0;
+    font-weight: 600;
+}
+
+/* Record Target Button */
+.btn-record-target {
+    width: 100%;
+    padding: 10px;
+    background: #2a1a4a;
+    border: 1px solid #4a3a7a;
+    color: #c0c0e0;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.btn-record-target:hover {
+    background: #3a2a5a;
+    border-color: #5a4a8a;
+    color: white;
+}
+
+.btn-record-target.recording {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+}
+
+.btn-record-target:active:not(.recording) {
+    transform: scale(0.98);
+}
+
+/* Add Parameter Button */
+.btn-add-parameter {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: 2px dashed #4a3a7a;
+    color: #808090;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-add-parameter:hover {
+    border-color: #7c4dff;
+    color: #7c4dff;
+    background: rgba(124, 77, 255, 0.05);
+}
+
+.btn-icon {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* Empty State for Regression */
+#regression-empty-state {
+    padding: 16px;
+    text-align: center;
+    color: #808090;
+    font-size: 12px;
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    border-radius: 8px;
+}
+
+#regression-empty-state p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Hide/Show based on mode */
+.gestures-section.hidden,
+.regression-section.hidden {
+    display: none !important;
+}
+
+/* ============================================================================
+   Regression Testing Outputs
+   ============================================================================ */
+
+.regression-outputs {
+    background: #0f0a1f;
+    border: 1px solid #2a1a4a;
+    border-radius: 6px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.regression-output-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.regression-output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.regression-output-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #a0a0d0;
+    letter-spacing: 0.3px;
+}
+
+.regression-output-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #7c4dff;
+    font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+.regression-output-bar {
+    width: 100%;
+    height: 24px;
+    background: #1a0f2e;
+    border: 1px solid #2a1a4a;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.regression-output-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c4dff, #00ff88);
+    transition: width 0.2s ease;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(124, 77, 255, 0.3);
 }

@@ -12,6 +12,11 @@ const FeatureFlags = {
     // Color classification - STABLE
     ENABLE_COLOR: true,
 
+    // IMU Regression mode - EXPERIMENTAL
+    // Allows continuous value prediction (0-1 range) instead of classification
+    // Uses sigmoid output activation for proper 0-1 range constraint
+    ENABLE_REGRESSION: false,
+
     // Future: Generic sensor input classification
     ENABLE_CUSTOM_SENSORS: false,
 

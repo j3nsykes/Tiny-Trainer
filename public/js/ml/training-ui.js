@@ -68,23 +68,33 @@ class TrainingUI {
   // ========================================================================
 
   onEpochEnd(data) {
-    // Update progress bar
-    const progress = (data.epoch / data.totalEpochs) * 100;
-    this.updateProgress(progress, data.totalEpochs, data.epoch);
-    
+    // Update progress bar (epoch is 0-indexed, so add 1 for display)
+    const progress = ((data.epoch + 1) / data.totalEpochs) * 100;
+    this.updateProgress(progress, data.totalEpochs, data.epoch + 1);
+
     // Update metrics
     this.updateMetrics(data);
-    
+
     // Update charts
     this.updateCharts(data.history);
-    
-    // Update status
-    const accuracy = (data.accuracy * 100).toFixed(1);
-    const valAccuracy = (data.valAccuracy * 100).toFixed(1);
-    this.updateStatus(
-      `Epoch ${data.epoch}/${data.totalEpochs} - Acc: ${accuracy}% - Val Acc: ${valAccuracy}%`,
-      'training'
-    );
+
+    // Update status based on mode
+    const isRegression = data.mae !== undefined;
+    if (isRegression) {
+      const mae = data.mae.toFixed(4);
+      const valMae = data.valMae.toFixed(4);
+      this.updateStatus(
+        `Epoch ${data.epoch + 1}/${data.totalEpochs} - MAE: ${mae} - Val MAE: ${valMae}`,
+        'training'
+      );
+    } else {
+      const accuracy = (data.accuracy * 100).toFixed(1);
+      const valAccuracy = (data.valAccuracy * 100).toFixed(1);
+      this.updateStatus(
+        `Epoch ${data.epoch + 1}/${data.totalEpochs} - Acc: ${accuracy}% - Val Acc: ${valAccuracy}%`,
+        'training'
+      );
+    }
   }
 
   // ========================================================================
@@ -93,24 +103,30 @@ class TrainingUI {
 
   onTrainingEnd(data) {
     console.log('🎉 Training completed - updating UI');
-    
+
     // Update final metrics
     this.displayFinalResults(data);
-    
+
     // Show testing interface
     this.showTestingInterface();
-    
+
     // Update status
     if (data.stopped) {
       this.updateStatus('Training stopped by user', 'stopped');
     } else {
-      const accuracy = (data.evaluation.accuracy * 100).toFixed(1);
-      this.updateStatus(`Training complete! Accuracy: ${accuracy}%`, 'complete');
+      // Check if regression or classification
+      if (data.evaluation.isRegression) {
+        const mae = data.evaluation.mae.toFixed(4);
+        this.updateStatus(`Training complete! MAE: ${mae}`, 'complete');
+      } else {
+        const accuracy = (data.evaluation.accuracy * 100).toFixed(1);
+        this.updateStatus(`Training complete! Accuracy: ${accuracy}%`, 'complete');
+      }
     }
-    
+
     // Enable export buttons
     this.enableExportButtons();
-    
+
     // Hide stop button, show close button
     this.updateModalButtons(true);
   }
@@ -181,54 +197,89 @@ class TrainingUI {
   // ========================================================================
 
   updateMetrics(data) {
+    // Check if this is regression mode
+    const isRegression = data.mae !== undefined;
+
+    // Update metric labels based on mode
+    this.updateMetricLabels(isRegression);
+
     // Loss
     const lossEl = document.getElementById('metric-loss');
     if (lossEl) {
       lossEl.textContent = data.loss.toFixed(4);
     }
-    
-    // Accuracy
+
+    // Accuracy / MAE
     const accEl = document.getElementById('metric-accuracy');
     if (accEl) {
-      accEl.textContent = `${(data.accuracy * 100).toFixed(1)}%`;
+      if (isRegression) {
+        accEl.textContent = data.mae.toFixed(4);
+      } else {
+        accEl.textContent = `${(data.accuracy * 100).toFixed(1)}%`;
+      }
     }
-    
+
     // Validation Loss
     const valLossEl = document.getElementById('metric-val-loss');
     if (valLossEl) {
       valLossEl.textContent = data.valLoss.toFixed(4);
     }
-    
-    // Validation Accuracy
+
+    // Validation Accuracy / Val MAE
     const valAccEl = document.getElementById('metric-val-accuracy');
     if (valAccEl) {
-      valAccEl.textContent = `${(data.valAccuracy * 100).toFixed(1)}%`;
+      if (isRegression) {
+        valAccEl.textContent = data.valMae.toFixed(4);
+      } else {
+        valAccEl.textContent = `${(data.valAccuracy * 100).toFixed(1)}%`;
+      }
     }
   }
 
+  updateMetricLabels(isRegression) {
+    // Update the accuracy label text based on mode
+    const metricBoxes = document.querySelectorAll('.metric-box');
+
+    metricBoxes.forEach(box => {
+      const label = box.querySelector('.metric-label');
+      const valueId = box.querySelector('.metric-value')?.id;
+
+      if (!label) return;
+
+      if (valueId === 'metric-accuracy') {
+        label.textContent = isRegression ? 'MAE' : 'Accuracy';
+      } else if (valueId === 'metric-val-accuracy') {
+        label.textContent = isRegression ? 'Val MAE' : 'Val Accuracy';
+      }
+    });
+  }
+
   updateTrainingInfo(data) {
+    // Check if this is regression mode
+    const isRegression = data.mode === 'regression';
+
     // Training samples
     const trainSamplesEl = document.getElementById('info-train-samples');
     if (trainSamplesEl) {
-      trainSamplesEl.textContent = data.stats.trainingSamples;
+      trainSamplesEl.textContent = isRegression ? data.trainingSize : data.stats.trainingSamples;
     }
-    
+
     // Validation samples
     const valSamplesEl = document.getElementById('info-val-samples');
     if (valSamplesEl) {
-      valSamplesEl.textContent = data.stats.validationSamples;
+      valSamplesEl.textContent = isRegression ? data.validationSize : data.stats.validationSamples;
     }
-    
+
     // Epochs
     const epochsEl = document.getElementById('info-epochs');
     if (epochsEl) {
-      epochsEl.textContent = data.config.epochs;
+      epochsEl.textContent = data.config ? data.config.epochs : 50;
     }
-    
+
     // Batch size
     const batchEl = document.getElementById('info-batch-size');
     if (batchEl) {
-      batchEl.textContent = data.config.batchSize;
+      batchEl.textContent = data.config ? data.config.batchSize : 16;
     }
   }
 
@@ -275,13 +326,23 @@ class TrainingUI {
     
     // Draw two charts: Accuracy (top) and Loss (bottom)
     const chartHeight = h / 2 - 20;
-    
-    // Accuracy chart
-    this.drawMetricChart(ctx, 10, 10, w - 20, chartHeight, 
-      history, ['accuracy', 'valAccuracy'], 
-      'Accuracy', 0, 1, ['#4a9eff', '#00ff88']);
-    
-    // Loss chart
+
+    // Check if this is regression mode
+    const isRegression = history.mae !== undefined;
+
+    if (isRegression) {
+      // MAE chart for regression
+      this.drawMetricChart(ctx, 10, 10, w - 20, chartHeight,
+        history, ['mae', 'valMae'],
+        'MAE (Mean Absolute Error)', 0, null, ['#4a9eff', '#00ff88']);
+    } else {
+      // Accuracy chart for classification
+      this.drawMetricChart(ctx, 10, 10, w - 20, chartHeight,
+        history, ['accuracy', 'valAccuracy'],
+        'Accuracy', 0, 1, ['#4a9eff', '#00ff88']);
+    }
+
+    // Loss chart (same for both)
     this.drawMetricChart(ctx, 10, h / 2 + 10, w - 20, chartHeight,
       history, ['loss', 'valLoss'],
       'Loss', 0, null, ['#ff6b6b', '#feca57']);
@@ -313,6 +374,8 @@ class TrainingUI {
       ctx.font = '11px -apple-system, sans-serif';
       const label = metric === 'valAccuracy' ? 'Val Acc' :
                     metric === 'valLoss' ? 'Val Loss' :
+                    metric === 'mae' ? 'Mae' :
+                    metric === 'valMae' ? 'ValMae' :
                     metric.charAt(0).toUpperCase() + metric.slice(1);
       ctx.fillText(label, legendX + 14, y + 16 + i * 16);
     });
@@ -371,14 +434,34 @@ class TrainingUI {
   displayFinalResults(data) {
     const resultsDiv = document.getElementById('final-results');
     if (!resultsDiv) return;
-    
-    const accuracy = (data.evaluation.accuracy * 100).toFixed(1);
+
     const loss = data.evaluation.loss.toFixed(4);
-    
+
     let html = `
       <div class="result-summary">
         <h3>Training Complete!</h3>
         <div class="result-metrics">
+    `;
+
+    // Check if this is regression or classification
+    if (data.evaluation.isRegression) {
+      // Regression metrics
+      const mae = data.evaluation.mae.toFixed(4);
+      const valMae = data.evaluation.valMae.toFixed(4);
+      html += `
+          <div class="result-metric">
+            <div class="result-label">Final MAE</div>
+            <div class="result-value">${mae}</div>
+          </div>
+          <div class="result-metric">
+            <div class="result-label">Val MAE</div>
+            <div class="result-value">${valMae}</div>
+          </div>
+      `;
+    } else {
+      // Classification metrics
+      const accuracy = (data.evaluation.accuracy * 100).toFixed(1);
+      html += `
           <div class="result-metric">
             <div class="result-label">Final Accuracy</div>
             <div class="result-value">${accuracy}%</div>
@@ -387,12 +470,16 @@ class TrainingUI {
             <div class="result-label">Final Loss</div>
             <div class="result-value">${loss}</div>
           </div>
+      `;
+    }
+
+    html += `
         </div>
       </div>
     `;
-    
-    // Per-class accuracy
-    if (data.evaluation.perClassAccuracy) {
+
+    // Per-class accuracy (only for classification)
+    if (!data.evaluation.isRegression && data.evaluation.perClassAccuracy) {
       html += '<div class="per-class-results"><h4>Per-Class Accuracy:</h4>';
       data.evaluation.perClassAccuracy.forEach(stat => {
         const acc = (stat.accuracy * 100).toFixed(1);
@@ -419,25 +506,87 @@ class TrainingUI {
     const testingInterface = document.getElementById('testing-interface');
     if (!testingInterface) return;
 
-    // Check if this is an audio model
+    // Check if this is regression or classification
     const dataType = this.mlTrainer.trainingData?.dataType || 'imu';
+    const isRegression = dataType === 'imu-regression';
 
-    // Setup probability bars for each class
-    this.setupProbabilityBars();
+    if (isRegression) {
+      // Setup regression output sliders
+      this.setupRegressionOutputs();
+
+      // Hide classification elements
+      const classificationElements = testingInterface.querySelectorAll('.classification-testing');
+      classificationElements.forEach(el => el.style.display = 'none');
+
+      // Show regression elements
+      const regressionOutputs = document.getElementById('regression-outputs');
+      if (regressionOutputs) {
+        regressionOutputs.style.display = 'flex';
+      }
+
+      console.log('🧪 Regression testing interface ready');
+    } else {
+      // Setup probability bars for classification
+      this.setupProbabilityBars();
+
+      // Hide regression elements
+      const regressionOutputs = document.getElementById('regression-outputs');
+      if (regressionOutputs) {
+        regressionOutputs.style.display = 'none';
+      }
+
+      // Show classification elements
+      const classificationElements = testingInterface.querySelectorAll('.classification-testing');
+      classificationElements.forEach(el => el.style.display = 'block');
+
+      console.log('🧪 Classification testing interface ready');
+    }
 
     // Show interface
     testingInterface.style.display = 'block';
 
-    console.log('🧪 Testing interface ready');
     console.log(`   Data type: ${dataType}`);
+  }
+
+  setupRegressionOutputs() {
+    const container = document.getElementById('regression-outputs');
+    if (!container || !this.mlTrainer.trainingData) return;
+
+    const outputLabels = this.mlTrainer.trainingData.outputLabels || [];
+    if (outputLabels.length === 0) {
+      console.log('⚠️  No output labels found - skipping regression outputs setup');
+      return;
+    }
+
+    let html = '';
+    outputLabels.forEach((label, index) => {
+      html += `
+        <div class="regression-output-item">
+          <div class="regression-output-header">
+            <span class="regression-output-label">${label}</span>
+            <span class="regression-output-value" id="regression-value-${index}">0.000</span>
+          </div>
+          <div class="regression-output-bar">
+            <div class="regression-output-fill" id="regression-fill-${index}" style="width: 0%"></div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+    console.log(`✅ Setup ${outputLabels.length} regression output sliders`);
   }
 
   setupProbabilityBars() {
     const container = document.getElementById('probability-bars');
     if (!container || !this.mlTrainer.trainingData) return;
-    
+
     const labels = this.mlTrainer.trainingData.labels;
-    
+    if (!labels) {
+      console.log('⚠️  No labels found - skipping probability bars setup');
+      return;
+    }
+
     let html = '';
     labels.forEach((label, index) => {
       html += `
@@ -450,40 +599,74 @@ class TrainingUI {
         </div>
       `;
     });
-    
+
     container.innerHTML = html;
   }
 
   updatePrediction(prediction) {
+    // Check if this is regression or classification
+    const isRegression = prediction.outputs !== undefined;
+
+    if (isRegression) {
+      this.updateRegressionPrediction(prediction);
+    } else {
+      this.updateClassificationPrediction(prediction);
+    }
+  }
+
+  updateRegressionPrediction(prediction) {
+    // Update regression output sliders
+    if (!prediction.outputs || prediction.outputs.length === 0) {
+      console.warn('⚠️ No regression outputs in prediction');
+      return;
+    }
+
+    prediction.outputs.forEach((value, index) => {
+      const fillEl = document.getElementById(`regression-fill-${index}`);
+      const valueEl = document.getElementById(`regression-value-${index}`);
+
+      if (fillEl) {
+        // Convert 0-1 value to percentage width
+        const percent = (value * 100).toFixed(1);
+        fillEl.style.width = `${percent}%`;
+      }
+
+      if (valueEl) {
+        valueEl.textContent = value.toFixed(3);
+      }
+    });
+  }
+
+  updateClassificationPrediction(prediction) {
     // Update predicted gesture
     const gestureEl = document.getElementById('predicted-gesture');
     const confidenceEl = document.getElementById('prediction-confidence');
-    
+
     if (gestureEl) {
       gestureEl.textContent = prediction.predictedLabel;
-      
+
       // Update class based on confidence
       gestureEl.classList.remove('low-confidence', 'no-prediction');
       if (prediction.confidence < 0.6) {
         gestureEl.classList.add('low-confidence');
       }
     }
-    
+
     if (confidenceEl) {
       const percent = (prediction.confidence * 100).toFixed(1);
       confidenceEl.textContent = `${percent}% confident`;
     }
-    
+
     // Update probability bars
     prediction.probabilities.forEach((prob, index) => {
       const barEl = document.getElementById(`prob-bar-${index}`);
       const valueEl = document.getElementById(`prob-value-${index}`);
       const labelEl = document.getElementById(`prob-label-${index}`);
-      
+
       if (barEl) {
         const percent = (prob * 100).toFixed(1);
         barEl.style.width = `${percent}%`;
-        
+
         // Highlight if this is the predicted class
         if (index === prediction.predictedClass) {
           barEl.classList.add('active');
@@ -491,18 +674,18 @@ class TrainingUI {
           barEl.classList.remove('active');
         }
       }
-      
+
       if (valueEl) {
         const percent = (prob * 100).toFixed(1);
         valueEl.textContent = `${percent}%`;
-        
+
         if (index === prediction.predictedClass) {
           valueEl.classList.add('active');
         } else {
           valueEl.classList.remove('active');
         }
       }
-      
+
       if (labelEl) {
         if (index === prediction.predictedClass) {
           labelEl.classList.add('active');

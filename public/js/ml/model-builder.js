@@ -357,6 +357,78 @@ class ModelBuilder {
   }
 
   // ========================================================================
+  // Regression Model
+  // ========================================================================
+
+  buildRegressionModel(inputShape, numOutputs, config = {}) {
+    // Build regression model with continuous outputs
+    // Same architecture as classification but with linear output activation
+    console.log('🏗️ Building regression model...');
+    console.log(`   Input shape: [${inputShape}]`);
+    console.log(`   Output values: ${numOutputs}`);
+
+    const cfg = {
+      hiddenUnits1: 50,
+      hiddenUnits2: 15,
+      dropoutRate: 0.2,
+      learningRate: 0.001,
+      ...config
+    };
+
+    console.log(`   Hidden layer 1: ${cfg.hiddenUnits1} units`);
+    console.log(`   Hidden layer 2: ${cfg.hiddenUnits2} units`);
+    console.log(`   Dropout rate: ${cfg.dropoutRate}`);
+
+    // Create sequential model
+    const model = tf.sequential();
+
+    // Input layer + First hidden layer
+    model.add(tf.layers.dense({
+      inputShape: inputShape,
+      units: cfg.hiddenUnits1,
+      activation: 'relu',
+      kernelInitializer: 'heNormal',
+      name: 'dense_1',
+    }));
+
+    // Dropout for regularization
+    model.add(tf.layers.dropout({
+      rate: cfg.dropoutRate,
+      name: 'dropout_1',
+    }));
+
+    // Second hidden layer
+    model.add(tf.layers.dense({
+      units: cfg.hiddenUnits2,
+      activation: 'relu',
+      kernelInitializer: 'heNormal',
+      name: 'dense_2',
+    }));
+
+    // Output layer - SIGMOID activation for regression (constrains to 0-1 range)
+    model.add(tf.layers.dense({
+      units: numOutputs,
+      activation: 'sigmoid',  // Sigmoid activation constrains outputs to 0-1 range
+      kernelInitializer: 'glorotNormal',
+      name: 'output',
+    }));
+
+    // Compile model with MSE loss
+    model.compile({
+      optimizer: tf.train.adam(cfg.learningRate),
+      loss: 'meanSquaredError',  // Regression loss
+      metrics: ['mae'],           // Mean Absolute Error
+    });
+
+    console.log('✅ Regression model built and compiled');
+
+    // Print summary
+    model.summary();
+
+    return model;
+  }
+
+  // ========================================================================
   // Model Configuration Presets
   // ========================================================================
 
