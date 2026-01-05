@@ -18,6 +18,7 @@ This desktop application can be used to train machine learning models with the A
   - Built-in IMU sensor (LSM9DS1 or BMI270/BMM150)
   - Built-in color sensor (APDS9960)
   - Bluetooth Low Energy connectivity
+- Optional compatibility with add-on **MPR121 breakout sensor**
 
 ## Software Requirements
 
@@ -42,6 +43,8 @@ Before using the app, you need to upload the multi-sensor streaming sketch to yo
 5. Select your port: **Tools > Port**
 6. Click **Upload**
 7. Open Serial Monitor (115200 baud) to verify - should show "BLE peripheral active, waiting for connections..."
+
+If using the MPR121 sensor follow the above steps except open and upload the `examples/Arduino/multi-sensor-stream/mpr121-capacitive-stream.ino` sketch.
 
 ### 2. Download and Run the App
 
@@ -121,6 +124,15 @@ Since this app is not signed by Apple, you may see a warning that it "is damaged
 5. Repeat 20-30 times for each color
 6. Create 2-3 different colors
 
+#### For Capacitive MPR121(Sensing Pattern) Classification:
+
+1. Select **Capacitive** tab
+2. Click **"+ Create Pattern"** and name it (e.g., "scrunch", "near", "far")
+3. Click **"Start Capture"** on the gesture
+4. Perform the motion for 1-2 seconds
+5. Repeat 20-30 times for each gesture
+6. Create 2-3 different gestures
+
 **Tip:** Aim for 20-30 samples per class for best results. More samples = better accuracy.
 
 ### 5. Train Your Model
@@ -159,6 +171,7 @@ You have three export options:
 - **Test Thoroughly:** Use the real-time testing before exporting
 - **Lighting Matters:** For color classification, use consistent lighting
 - **Motion Matters:** For IMU, make distinct, repeatable gestures
+- **Capcitive Sensors Matters:** For Capacitive sensing, the quality of your sensing material (what your electrodes are wired to) matters for accurate readings that are distinctly different enough.
 
 ## Troubleshooting
 
@@ -240,6 +253,7 @@ Tiny-Trainer/
 ├── examples/                # Example code
 │   └── Arduino/
 │       ├── multi-sensor-stream/  # Main sketch (IMU + Color)
+│       ├── mpr121-capacitive-stream/  # Extra sketch (capacitive sensing)
 │
 └── assets/                  # Build resources (icons, etc.)
 ```
@@ -302,7 +316,7 @@ For questions or issues:
 
 ---
 
-**Version:** 1.0.1
-**Last Updated:** December 2025
+**Version:** 2.0.0
+**Last Updated:** January 2026
 **Compatibility:** macOS
 **Arduino:** Nano 33 BLE Sense (all revisions)
