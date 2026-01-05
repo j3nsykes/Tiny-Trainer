@@ -49,11 +49,22 @@ Before using the app, you need to upload the multi-sensor streaming sketch to yo
 
 1. Go to [Releases](https://github.com/j3nsykes/Tiny-Trainer/releases)
 2. Download the latest version for your Mac:
-   - **Apple Silicon (M1/M2/M3):** `Tiny Trainer-1.0.0-arm64-mac.zip`
-   - **Intel Macs:** `Tiny Trainer-1.0.0-mac.zip`
+   - **Apple Silicon (M1/M2/M3):** `Tiny Trainer-2.0.0-arm64-mac.zip`
+   - **Intel Macs:** `Tiny Trainer-2.0.0-mac.zip`
 3. Extract the ZIP file
 4. Open `Tiny Trainer.app`
 5. If you see a security warning: System Preferences → Security & Privacy → Click "Open Anyway"
+
+#### \*\*\*macOS Setup
+
+Since this app is not signed by Apple, you may see a warning that it "is damaged and can't be opened." To fix this:
+
+1. Move the app to your **Applications** folder.
+2. Open Terminal and run:
+   ```bash
+   xattr -cr /Applications/Tiny Trainer.app
+   ```
+3. You can now open the app normally.
 
 #### Option B: Run from Source
 
