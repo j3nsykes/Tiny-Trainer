@@ -368,11 +368,16 @@ section {
     align-items: center;
     justify-content: center;
     pointer-events: none;
-    transition: opacity 0.3s;
+    transition: opacity 0.3s, background 0.3s;
 }
 
 .preview-overlay.hidden {
     opacity: 0;
+}
+
+.preview-overlay.capturing {
+    background: rgba(15, 10, 31, 0.15);
+    opacity: 1;
 }
 
 .preview-message {
@@ -908,7 +913,7 @@ section {
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 .probability-bar {

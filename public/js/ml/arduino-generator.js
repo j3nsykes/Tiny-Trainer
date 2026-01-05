@@ -53,6 +53,8 @@ class ArduinoModelGenerator {
     let mainFileName;
     if (this.dataType === 'color') {
       mainFileName = 'color_model.ino';
+    } else if (this.dataType === 'capacitive') {
+      mainFileName = 'capacitive_model.ino';
     } else if (this.dataType === 'audio') {
       mainFileName = 'audio_model.ino';
     } else {
@@ -63,16 +65,25 @@ class ArduinoModelGenerator {
     const header = this.generateModelHeader();
     const readme = this.generateReadme();
 
-    return {
+    const files = {
       [mainFileName]: ino,
       'model_data.h': header,
       'README.md': readme
     };
+
+    // Add MPR121_Helper.h for capacitive models
+    if (this.dataType === 'capacitive') {
+      files['MPR121_Helper.h'] = this.generateMPR121Helper();
+    }
+
+    return files;
   }
 
   generateMainSketch() {
     if (this.dataType === 'color') {
       return this.generateColorSketch();
+    } else if (this.dataType === 'capacitive') {
+      return this.generateCapacitiveSketch();
     } else if (this.dataType === 'audio') {
       return this.generateAudioSketch();
     } else {
@@ -537,6 +548,363 @@ void predict() {
 `;
   }
 
+  generateCapacitiveSketch() {
+    const numPatterns = this.labels.length;
+    const inputSize = this.weights[0].inputShape;
+    const numFrames = inputSize / 12; // e.g., 1200 / 12 = 100 frames
+
+    return `// BLE Capacitive Pattern Recognition
+// Generated: ${new Date().toISOString()}
+
+#include <ArduinoBLE.h>
+#include <Wire.h>
+#include "Adafruit_MPR121.h"
+#include "MPR121_Helper.h"
+#include "model_data.h"
+
+// Nordic UART Service (NUS) - Compatible with Serial-Bridge
+BLEService uartService("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
+
+// TX Characteristic - Arduino sends predictions to serial-bridge (notify)
+BLEStringCharacteristic txCharacteristic("6E400003-B5A3-F393-E0A9-E50E24DCCA9E", BLERead | BLENotify, 64);
+
+// RX Characteristic - Arduino receives data (optional)
+BLEStringCharacteristic rxCharacteristic("6E400002-B5A3-F393-E0A9-E50E24DCCA9E", BLEWrite, 20);
+
+// MPR121 sensor (12-electrode capacitive touch/proximity sensor)
+Adafruit_MPR121 cap = Adafruit_MPR121();
+MPR121_Helper touch(&cap);
+
+float sampleBuffer[${inputSize}];
+int bufferIndex = 0;
+bool isCapturing = false;
+bool bleConnected = false;
+
+// Normalization constants (MPR121 filtered data range)
+const float FILTERED_DATA_MIN = 0.0;
+const float FILTERED_DATA_MAX = 1000.0;
+
+// Auto-trigger settings
+// IMPORTANT: Set to false if you have a "no touch" or "baseline" pattern class
+// When false, continuously captures and predicts (like IMU gesture mode)
+const bool USE_AUTO_TRIGGER = true;
+
+// Auto-trigger threshold (proximity detection)
+// Trigger when any electrode drops below this threshold (after /4 normalization: 0.0-0.25 range)
+// Lower values = closer proximity (sensor outputs inverted values)
+const float PROXIMITY_THRESHOLD = 0.15; // Trigger when proximity detected (0.15 or less, which is 0.60 before /4)
+const int CAPTURE_DELAY = 20; // ms between captures (50 Hz to match training data)
+unsigned long lastCapture = 0;
+unsigned long lastPrediction = 0;
+const int PREDICTION_INTERVAL = 500; // ms between predictions in continuous mode
+
+// MPR121 I2C address (default is 0x5A)
+#define MPR121_I2C_ADDR 0x5A
+
+// Touch/Release thresholds for the sensor
+#define TOUCH_THRESHOLD 40
+#define RELEASE_THRESHOLD 20
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial && millis() < 3000); // Wait up to 3 seconds for Serial
+
+  Serial.println("BLE Capacitive Pattern Recognition");
+  Serial.println("===================================");
+  Serial.println("VERSION 1.0.0");
+
+  // Initialize I2C
+  Wire.begin();
+
+  // Initialize MPR121
+  if (!cap.begin(MPR121_I2C_ADDR)) {
+    Serial.println("❌ Failed to initialize MPR121!");
+    Serial.println("   Check wiring and I2C address (0x5A)");
+    while (1) {
+      delay(200);
+    }
+  }
+
+  Serial.println("✅ MPR121 Capacitive Sensor initialized");
+  Serial.print("   I2C Address: 0x");
+  Serial.println(MPR121_I2C_ADDR, HEX);
+  Serial.print("   Electrodes: 12");
+  Serial.println();
+
+  // Configure sensor thresholds
+  touch.setThresholds(TOUCH_THRESHOLD, RELEASE_THRESHOLD);
+
+  // Enable auto-configuration for best performance
+  cap.setAutoconfig(true);
+
+  // IMPORTANT: Add delay before BLE setup to prevent Mac crashes
+  Serial.println("⏳ Waiting 3 seconds before starting BLE...");
+  delay(3000);
+
+  // Initialize BLE
+  if (!BLE.begin()) {
+    Serial.println("❌ Failed to initialize BLE!");
+    while (1) {
+      delay(100);
+    }
+  }
+
+  // Set BLE local name - will appear in serial-bridge device list
+  BLE.setLocalName("CapacitiveRecognizer");
+
+  // Advertise the UART service
+  BLE.setAdvertisedService(uartService);
+
+  // Add characteristics to service
+  uartService.addCharacteristic(txCharacteristic);
+  uartService.addCharacteristic(rxCharacteristic);
+
+  // Add service
+  BLE.addService(uartService);
+
+  // Set initial value
+  txCharacteristic.writeValue("");
+
+  // Start advertising
+  BLE.advertise();
+
+  Serial.println("✅ Capacitive Pattern Recognition Ready");
+  Serial.println("✅ BLE UART Active - Device: CapacitiveRecognizer");
+
+  // Validate model data
+  if (NUM_PATTERNS == 0) {
+    Serial.println("❌ ERROR: No patterns defined in model_data.h!");
+    Serial.println("   The PATTERNS array is empty. Check your model export.");
+    while(1) { delay(1000); } // Halt execution
+  }
+
+  Serial.print("Number of patterns: ");
+  Serial.println(NUM_PATTERNS);
+  Serial.print("Patterns: ");
+  for (int i = 0; i < NUM_PATTERNS; i++) {
+    Serial.print(PATTERNS[i]);
+    if (i < NUM_PATTERNS - 1) Serial.print(", ");
+  }
+  Serial.println();
+  Serial.print("Model input size: ");
+  Serial.print(${inputSize});
+  Serial.print(" (");
+  Serial.print(${numFrames});
+  Serial.println(" frames × 12 electrodes)");
+  Serial.println("Standalone mode active - BLE optional");
+}
+
+void loop() {
+  // Listen for BLE connections
+  BLEDevice central = BLE.central();
+
+  if (central) {
+    if (!bleConnected) {
+      Serial.print("Connected to: ");
+      Serial.println(central.address());
+      bleConnected = true;
+    }
+
+    while (central.connected()) {
+      processPattern();
+    }
+
+    Serial.print("Disconnected from: ");
+    Serial.println(central.address());
+    bleConnected = false;
+  } else {
+    // Always process patterns - standalone mode works without BLE
+    processPattern();
+  }
+}
+
+void processPattern() {
+  // Update filtered data from sensor
+  touch.updateFilteredData();
+
+  // Read all 12 electrode values
+  float electrodeValues[12];
+  bool proximityDetected = false;
+
+  for (uint8_t i = 0; i < 12; i++) {
+    uint16_t rawFiltered = touch.getFilteredData(i);
+
+    // Normalize to 0.0-1.0 range first
+    // Based on actual testing: sensor already outputs inverted values
+    // Higher normalized values = closer proximity (no manual inversion needed)
+    float normalized = (float)rawFiltered / FILTERED_DATA_MAX;
+
+    // Clamp to valid range
+    if (normalized > 1.0) normalized = 1.0;
+    if (normalized < 0.0) normalized = 0.0;
+
+    // IMPORTANT: Match training normalization
+    // Training divides by 4 to normalize to [-1, 1] range (like IMU data)
+    // So we must do the same here for the model to work correctly
+    normalized = normalized / 4.0;
+
+    electrodeValues[i] = normalized;
+
+    // Check if any electrode detects proximity (for auto-trigger mode)
+    // Lower values = closer (sensor inverted)
+    if (USE_AUTO_TRIGGER && normalized <= PROXIMITY_THRESHOLD) {
+      proximityDetected = true;
+    }
+  }
+
+  unsigned long now = millis();
+
+  if (!isCapturing) {
+    // Auto-trigger mode: start capture when proximity detected
+    if (USE_AUTO_TRIGGER) {
+      if (proximityDetected) {
+        isCapturing = true;
+        bufferIndex = 0;
+        lastCapture = now - CAPTURE_DELAY; // Allow immediate first frame
+        Serial.println("Capturing pattern...");
+      }
+    } else {
+      // Continuous mode: always capturing
+      // Start new capture if enough time has passed since last prediction
+      if (now - lastPrediction >= PREDICTION_INTERVAL) {
+        isCapturing = true;
+        bufferIndex = 0;
+        lastCapture = now - CAPTURE_DELAY; // Allow immediate first frame
+      }
+    }
+  }
+
+  if (isCapturing && (now - lastCapture >= CAPTURE_DELAY)) {
+    lastCapture = now;
+
+    // Add all 12 electrode values to buffer
+    for (uint8_t i = 0; i < 12; i++) {
+      sampleBuffer[bufferIndex++] = electrodeValues[i];
+    }
+
+    // Debug: print frame number every 10 frames
+    int frameNum = bufferIndex / 12;
+    if (frameNum % 10 == 0) {
+      Serial.print("Frame ");
+      Serial.print(frameNum);
+      Serial.print("/");
+      Serial.println(${numFrames});
+    }
+
+    // Check if we've collected enough frames
+    if (bufferIndex >= ${inputSize}) {
+      Serial.println("Buffer full, predicting...");
+      predict();
+      isCapturing = false;
+      lastPrediction = now;
+    }
+  }
+}
+
+void predict() {
+  // Debug: Print sample statistics
+  float sampleMin = sampleBuffer[0];
+  float sampleMax = sampleBuffer[0];
+  float sampleAvg = 0.0;
+  for (int i = 0; i < ${inputSize}; i++) {
+    if (sampleBuffer[i] < sampleMin) sampleMin = sampleBuffer[i];
+    if (sampleBuffer[i] > sampleMax) sampleMax = sampleBuffer[i];
+    sampleAvg += sampleBuffer[i];
+  }
+  sampleAvg /= ${inputSize};
+
+  Serial.print("Sample stats - Min: ");
+  Serial.print(sampleMin, 3);
+  Serial.print(", Max: ");
+  Serial.print(sampleMax, 3);
+  Serial.print(", Avg: ");
+  Serial.println(sampleAvg, 3);
+
+  // Input already normalized during capture (0-1 range)
+  float input[${inputSize}];
+  for (int i = 0; i < ${inputSize}; i++) {
+    input[i] = sampleBuffer[i];
+  }
+
+  // Layer 1: ${inputSize} -> ${this.weights[0].outputShape}
+  float h1[${this.weights[0].outputShape}];
+  for (int i = 0; i < ${this.weights[0].outputShape}; i++) {
+    float sum = layer1_bias[i];
+    for (int j = 0; j < ${inputSize}; j++) {
+      sum += input[j] * layer1_weights[j * ${this.weights[0].outputShape} + i];
+    }
+    h1[i] = max(0.0f, sum);
+  }
+
+  // Layer 2: ${this.weights[0].outputShape} -> ${this.weights[1].outputShape}
+  float h2[${this.weights[1].outputShape}];
+  for (int i = 0; i < ${this.weights[1].outputShape}; i++) {
+    float sum = layer2_bias[i];
+    for (int j = 0; j < ${this.weights[0].outputShape}; j++) {
+      sum += h1[j] * layer2_weights[j * ${this.weights[1].outputShape} + i];
+    }
+    h2[i] = max(0.0f, sum);
+  }
+
+  // Layer 3: ${this.weights[1].outputShape} -> ${numPatterns}
+  float output[${numPatterns}];
+  float maxVal = -1000000.0f;
+  for (int i = 0; i < ${numPatterns}; i++) {
+    float sum = layer3_bias[i];
+    for (int j = 0; j < ${this.weights[1].outputShape}; j++) {
+      sum += h2[j] * layer3_weights[j * ${numPatterns} + i];
+    }
+    output[i] = sum;
+    if (sum > maxVal) maxVal = sum;
+  }
+
+  // Softmax
+  float sumExp = 0.0f;
+  for (int i = 0; i < ${numPatterns}; i++) {
+    output[i] = exp(output[i] - maxVal);
+    sumExp += output[i];
+  }
+  for (int i = 0; i < ${numPatterns}; i++) {
+    output[i] /= sumExp;
+  }
+
+  // Find max
+  int pred = 0;
+  float maxConf = output[0];
+  for (int i = 1; i < ${numPatterns}; i++) {
+    if (output[i] > maxConf) {
+      maxConf = output[i];
+      pred = i;
+    }
+  }
+
+  // Output to Serial
+  Serial.print("Predicted: ");
+  Serial.print(PATTERNS[pred]);
+  Serial.print(" (");
+  Serial.print(maxConf * 100.0, 1);
+  Serial.println("%)");
+
+  // Print all probabilities
+  for (int i = 0; i < ${numPatterns}; i++) {
+    Serial.print("  ");
+    Serial.print(PATTERNS[i]);
+    Serial.print(": ");
+    Serial.print(output[i] * 100.0, 1);
+    Serial.println("%");
+  }
+
+  // Send over BLE UART only if connected
+  if (bleConnected) {
+    // Format: "pattern,confidence" - compatible with serial-bridge parsing
+    char predictionStr[64];
+    snprintf(predictionStr, sizeof(predictionStr), "%s,%.2f\\n", PATTERNS[pred], maxConf * 100.0);
+    txCharacteristic.writeValue(predictionStr);
+  }
+}
+`;
+  }
+
   generateAudioSketch() {
     const numSounds = this.labels.length;
 
@@ -833,6 +1201,9 @@ void predict() {
     if (this.dataType === 'color') {
       labelType = 'COLORS';
       countName = 'NUM_COLORS';
+    } else if (this.dataType === 'capacitive') {
+      labelType = 'PATTERNS';
+      countName = 'NUM_PATTERNS';
     } else if (this.dataType === 'audio') {
       labelType = 'SOUNDS';
       countName = 'NUM_SOUNDS';
@@ -898,6 +1269,7 @@ ${this.labels.map(l => `  "${l}"`).join(',\n')}
 
   generateReadme() {
     const isColor = this.dataType === 'color';
+    const isCapacitive = this.dataType === 'capacitive';
     const isAudio = this.dataType === 'audio';
 
     let modelType, classType, deviceName, fileName, exampleClass;
@@ -908,6 +1280,12 @@ ${this.labels.map(l => `  "${l}"`).join(',\n')}
       deviceName = 'AudioClassifier';
       fileName = 'audio_model.ino';
       exampleClass = this.labels[0] || 'beep';
+    } else if (isCapacitive) {
+      modelType = 'Capacitive Pattern Recognition';
+      classType = 'Patterns';
+      deviceName = 'CapacitiveRecognizer';
+      fileName = 'capacitive_model.ino';
+      exampleClass = this.labels[0] || 'touch';
     } else if (isColor) {
       modelType = 'Color Recognition';
       classType = 'Colors';
@@ -930,15 +1308,15 @@ Generated: ${new Date().toISOString()}
 ${this.labels.map((l, i) => `${i + 1}. ${l}`).join('\n')}
 
 ## Hardware
-- Arduino Nano 33 BLE Sense${isColor ? ' Rev2' : ''}
+- Arduino Nano 33 BLE Sense${isColor ? ' Rev2' : ''}${isCapacitive ? '\n- MPR121 Capacitive Touch Sensor (12-electrode breakout board)' : ''}
 
 ## Installation
 1. Open ${fileName} in Arduino IDE
-2. Ensure model_data.h is in the same folder
-3. Install required libraries (Tools → Manage Libraries):
-   - ArduinoBLE${isColor ? '\n   - Arduino_APDS9960' : ''}${isAudio ? '\n   - PDM (included with Arduino Nano 33 BLE)' : ''}
-4. Select board: Arduino Nano 33 BLE Sense${isColor ? ' Rev2' : ''}
-5. Upload
+2. Ensure model_data.h is in the same folder${isCapacitive ? '\n3. Ensure MPR121_Helper.h is in the same folder' : ''}
+${isCapacitive ? '4' : '3'}. Install required libraries (Tools → Manage Libraries):
+   - ArduinoBLE${isColor ? '\n   - Arduino_APDS9960' : ''}${isCapacitive ? '\n   - Adafruit_MPR121' : ''}${isAudio ? '\n   - PDM (included with Arduino Nano 33 BLE)' : ''}
+${isCapacitive ? '5' : '4'}. Select board: Arduino Nano 33 BLE Sense${isColor ? ' Rev2' : ''}
+${isCapacitive ? '6' : '5'}. Upload${isCapacitive ? '\n\n## MPR121 Wiring\nConnect the MPR121 to Arduino using I2C:\n- VCC → 3.3V\n- GND → GND\n- SCL → SCL (A5)\n- SDA → SDA (A4)\n- IRQ → Not connected (optional)\n- I2C Address: 0x5A (default)' : ''}
 
 ${isAudio ? `## IMPORTANT: Simplified Audio Model
 
@@ -963,6 +1341,34 @@ The PDM microphone (MP34DT05) on Arduino Nano 33 BLE Sense captures audio at 16k
 **Modes:**
 - Continuous: Classifies audio continuously
 - Triggered: Only classifies when volume exceeds threshold
+
+` : ''}${isCapacitive ? `## Sensor Details
+The MPR121 capacitive sensor features:
+- **12 Electrodes**: Separate touch/proximity sensing channels (E0-E11)
+- **Filtered Data**: Proximity values (0-1000) - normalized to 0.0-1.0
+- **I2C Interface**: Simple 2-wire communication at address 0x5A
+- **Two Operating Modes**: Auto-trigger or Continuous prediction
+
+The model captures ${this.weights[0].inputShape / 12} frames (${this.weights[0].inputShape} values total = ${this.weights[0].inputShape / 12} frames × 12 electrodes).
+
+**Note:** The sensor outputs inverted proximity values - higher normalized values indicate closer proximity.
+
+### Auto-Trigger vs Continuous Mode
+
+**Auto-Trigger Mode (default):**
+\`const bool USE_AUTO_TRIGGER = true;\`
+- Starts capturing only when proximity is detected (normalized value ≤ 0.60)
+- Best for distinct gestures/touches with clear start/end points
+- Saves power and reduces unnecessary predictions
+
+**Continuous Mode:**
+\`const bool USE_AUTO_TRIGGER = false;\`
+- Continuously captures and predicts every 500ms
+- Required if you have a "no touch" or "baseline" pattern class
+- Allows classification of ambient/resting states
+- Set this if patterns include states between 0.6-0.7 range
+
+To change modes, edit the \`USE_AUTO_TRIGGER\` constant at the top of the sketch.
 
 ` : ''}${isColor ? `## Sensor Details
 The APDS9960 color sensor captures:
@@ -990,7 +1396,7 @@ Your serial-bridge Electron app will automatically recognize this as a UART devi
 4. Receive predictions on TX characteristic
 
 ### Data Format
-**BLE Output:** \`${isAudio ? 'sound' : isColor ? 'color' : 'gesture'}_name,confidence\\n\`
+**BLE Output:** \`${isAudio ? 'sound' : isCapacitive ? 'pattern' : isColor ? 'color' : 'gesture'}_name,confidence\\n\`
 **Example:** \`${exampleClass},92.50\\n\`
 
 This matches the format your serial-bridge expects!
@@ -1009,9 +1415,112 @@ ${this.labels.map(l => `  ${l}: ${l === exampleClass ? '92.5' : '7.5'}%`).join('
 
 ## Integration with P5.js
 1. Serial-Bridge receives BLE predictions: \`${exampleClass},92.50\`
-2. Parses ${isColor ? 'color' : 'gesture'} name and confidence
+2. Parses ${isCapacitive ? 'pattern' : isColor ? 'color' : 'gesture'} name and confidence
 3. Forwards to P5 sketch via WebSocket/OSC
-4. Your sketch responds to ${isColor ? 'colors' : 'gestures'}!
+4. Your sketch responds to ${isCapacitive ? 'patterns' : isColor ? 'colors' : 'gestures'}!
+`;
+  }
+
+  generateMPR121Helper() {
+    return `#ifndef MPR121_HELPER_H
+#define MPR121_HELPER_H
+
+#include "Adafruit_MPR121.h"
+
+// Beginner-friendly wrapper for Adafruit MPR121 to align with the old Bare Conductive library
+// Hides the need to show Bit manipulation to beginners.
+class MPR121_Helper {
+private:
+  Adafruit_MPR121* sensor;
+  uint16_t currentTouchData;
+  uint16_t lastTouchData;
+  uint16_t filteredDataCache[12];  // Cache for filtered data
+
+public:
+  MPR121_Helper(Adafruit_MPR121* cap) {
+    sensor = cap;
+    currentTouchData = 0;
+    lastTouchData = 0;
+    // Initialise filtered data cache
+    for (uint8_t i = 0; i < 12; i++) {
+      filteredDataCache[i] = 0;
+    }
+  }
+
+  // Update touch data from the sensor. Call this once per loop
+  void updateTouchData() {
+    lastTouchData = currentTouchData;
+    currentTouchData = sensor->touched();
+  }
+
+  // Update filtered data for all electrodes. Call once per loop for proximity sensing
+  void updateFilteredData() {
+    for (uint8_t i = 0; i < 12; i++) {
+      filteredDataCache[i] = sensor->filteredData(i);
+    }
+  }
+
+    // Check if a specific sensor is currently touched
+  bool getTouchData(uint8_t electrode) {
+    if (electrode > 11) return false;
+    return (currentTouchData & (1 << electrode)) != 0;
+  }
+
+  // Check if a specific sensor is currently touched
+  bool isTouched(uint8_t electrode) {
+    if (electrode > 11) return false;
+    return (currentTouchData & (1 << electrode)) != 0;
+  }
+
+  // Check if a sensor was touched in the last reading
+  bool wasTouched(uint8_t electrode) {
+    if (electrode > 11) return false;
+    return (lastTouchData & (1 << electrode)) != 0;
+  }
+
+  // Check if there is a new touch event
+  bool isNewTouch(uint8_t electrode) {
+    return isTouched(electrode) && !wasTouched(electrode);
+  }
+
+  // Check if there was a new release event
+  bool isNewRelease(uint8_t electrode) {
+    return !isTouched(electrode) && wasTouched(electrode);
+  }
+
+  // Get the total number of sensors currently touched
+  uint8_t getNumTouches() {
+    uint8_t count = 0;
+    for (uint8_t i = 0; i < 12; i++) {
+      if (isTouched(i)) count++;
+    }
+    return count;
+  }
+
+  // Get filtered data for proximity sensing
+  // Higher values = closer to electrode
+  // Returns cached value. Call updateFilteredData() first
+  uint16_t getFilteredData(uint8_t electrode) {
+    if (electrode > 11) return 0;
+    return filteredDataCache[electrode];
+  }
+
+  // Set touch and release thresholds for all electrodes
+  void setThresholds(uint8_t touchThreshold, uint8_t releaseThreshold) {
+    sensor->setThresholds(touchThreshold, releaseThreshold);
+  }
+
+  // Separate methods for setting thresholds individually
+  void setTouchThreshold(uint8_t threshold) {
+    sensor->setThresholds(threshold, 20); // Use default release of 20
+  }
+
+  void setReleaseThreshold(uint8_t threshold) {
+    sensor->setThresholds(40, threshold); // Use default touch of 40
+  }
+};
+
+#endif
 `;
   }
 }

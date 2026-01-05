@@ -22,8 +22,8 @@ const settingsManager = require('./settings-manager');
 // ============================================================================
 
 const CONFIG = {
-  serverPort: 3000,          // Default WebSocket server port
-  maxPortAttempts: 5,        // Try ports 3000-3004
+  serverPort: 2000,          // Default WebSocket server port (changed from 3000 to avoid conflicts)
+  maxPortAttempts: 10,       // Try ports 2000-2009 (increased range for multi-app use)
   bleUartService: '6E400001-B5A3-F393-E0A9-E50E24DCCA9E',
   bleTxCharacteristic: '6E400003-B5A3-F393-E0A9-E50E24DCCA9E',
   bleRxCharacteristic: '6E400002-B5A3-F393-E0A9-E50E24DCCA9E',

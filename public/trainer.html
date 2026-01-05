@@ -38,6 +38,10 @@
                 <span class="tab-icon">🎤</span>
                 <span class="tab-label">Sound Classification</span>
             </button>
+            <button class="tab-btn" data-tab="capacitive">
+                <span class="tab-icon">✋</span>
+                <span class="tab-label">Capacitive Sensing</span>
+            </button>
         </div>
 
         <!-- Mode Toggle (only visible on IMU tab) -->
@@ -405,6 +409,101 @@
         </div>
         <!-- End Audio Panel -->
 
+        <!-- Capacitive Sensing Tab Panel -->
+        <div class="tab-panel" id="capacitive-panel">
+            <section class="settings-section">
+                <div class="section-header">
+                    <h2>Capacitive Sensing Settings</h2>
+                </div>
+                <div class="settings-controls">
+                    <div class="setting-item">
+                        <span class="setting-label">Samples per label:</span>
+                        <div class="setting-input-wrapper">
+                            <input type="number" id="capacitive-samples-per-class" value="20" min="5" max="50">
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Frames per sample:</span>
+                        <div class="setting-input-wrapper">
+                            <input type="number" id="capacitive-frames-per-sample" value="100" min="50" max="200">
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Learning rate:</span>
+                        <div class="setting-input-wrapper">
+                            <input type="number" id="capacitive-learning-rate" value="0.001" min="0.0001" max="0.01" step="0.0001">
+                            <span class="setting-help-text">Default: 0.001. Lower (0.0005) for subtle patterns, higher (0.002) for distinct ones</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Data augmentation:</span>
+                        <div class="setting-input-wrapper">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="capacitive-data-augmentation-enabled">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="setting-help-text">Add noise to samples during training (helps with similar patterns)</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="gestures-section">
+                <div class="section-header">
+                    <h2>Sense Labels</h2>
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div class="capture-status-compact" id="capacitive-capture-status">
+                            <div class="status-text" id="capacitive-status-text">Ready</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="capacitive-progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="frame-count" id="capacitive-frame-count">0 / 100</div>
+                        </div>
+                        <button class="btn-primary" id="add-capacitive-btn">+ Add Pattern</button>
+                    </div>
+                </div>
+
+                <div class="gestures-grid" id="capacitive-grid">
+                    <div class="empty-state" id="capacitive-empty-state">
+                        <p>No patterns yet. Click "+ Add Pattern" to get started.</p>
+                        <p class="hint">✋ Capture patterns across 12 electrodes for classification</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="capture-section">
+                <div class="section-header">
+                    <h2>Live Electrode Preview</h2>
+                </div>
+                <div class="preview-container">
+                    <canvas id="capacitive-preview-canvas" width="800" height="280"></canvas>
+                    <div class="preview-overlay" id="capacitive-preview-overlay">
+                        <div class="preview-message" id="capacitive-preview-message">
+                            Select a label and click Record to begin
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="actions-section">
+                <button class="btn-secondary" id="load-capacitive-data-btn" title="Load previously exported capacitive training data (.json)">
+                    📂 Load Training Data
+                </button>
+                <button class="btn-secondary" id="export-capacitive-data-btn" disabled>
+                    📥 Export Training Data
+                </button>
+                <button class="btn-success" id="train-capacitive-model-btn" disabled>
+                    🚀 Train Model
+                </button>
+                <div class="training-info">
+                    <p id="capacitive-training-info-text">Add at least 2 patterns with samples to train</p>
+                </div>
+            </section>
+
+            <input type="file" id="load-capacitive-data-input" accept=".json" style="display: none;">
+        </div>
+        <!-- End Capacitive Panel -->
+
     </main>
 
     <!-- Add Gesture Modal -->
@@ -506,6 +605,47 @@
             <div class="modal-footer">
                 <button class="btn-secondary" id="cancel-sound-btn">Cancel</button>
                 <button class="btn-primary" id="create-sound-btn">Create Sound</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Capacitive Label Modal -->
+    <div class="modal" id="add-capacitive-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Pattern</h3>
+                <button class="close-btn" id="close-capacitive-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>
+                    Pattern Name
+                    <input type="text" id="capacitive-name-input" placeholder="e.g., hand palm, thumb left, squeeze" autofocus>
+                </label>
+                <p class="hint">Choose a descriptive name for the pattern you want to recognize.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-capacitive-btn">Cancel</button>
+                <button class="btn-primary" id="create-capacitive-btn">Create Pattern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Capacitive Label Modal -->
+    <div class="modal" id="rename-capacitive-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Rename Pattern</h3>
+                <button class="close-btn" id="close-rename-capacitive-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>
+                    New Name
+                    <input type="text" id="rename-capacitive-input" placeholder="Enter new name">
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-rename-capacitive-btn">Cancel</button>
+                <button class="btn-primary" id="save-rename-capacitive-btn">Save</button>
             </div>
         </div>
     </div>
@@ -672,9 +812,11 @@
     <script src="js/ml/data-collector.js"></script>
     <script src="js/ml/color-data-collector.js"></script>
     <script src="js/ml/audio-data-collector.js"></script>
+    <script src="js/ml/capacitive-data-collector.js"></script>
     <script src="js/ml/visualizer.js"></script>
     <script src="js/color-visualizer.js"></script>
     <script src="js/ml/audio-visualizer.js"></script>
+    <script src="js/ml/capacitive-visualizer.js"></script>
     <script src="js/ml/audio-ui-manager.js"></script>
     <script src="js/ml/data-processor.js"></script>
     <script src="js/ml/regression-manager.js"></script>

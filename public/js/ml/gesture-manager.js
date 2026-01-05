@@ -133,13 +133,17 @@ class GestureManager {
       throw new Error('Gesture not found');
     }
 
-    // Validate sample data - accept both IMU and Color samples
+    // Validate sample data - accept IMU, Color, and Capacitive samples
     // IMU: 100 frames × 9 axes = 900
     // Color: 50 frames × 5 channels = 250, or 100 frames × 5 channels = 500
+    // Capacitive: 100 frames × 12 electrodes = 1200
     const validLengths = [
       this.framesPerSample * 9,  // IMU gestures (900)
       50 * 5,                      // Color samples 50 frames (250)
       100 * 5,                     // Color samples 100 frames (500)
+      100 * 12,                    // Capacitive samples 100 frames (1200)
+      50 * 12,                     // Capacitive samples 50 frames (600)
+      200 * 12,                    // Capacitive samples 200 frames (2400)
     ];
 
     if (!validLengths.includes(sampleData.length)) {

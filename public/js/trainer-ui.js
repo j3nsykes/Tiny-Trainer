@@ -923,6 +923,8 @@ async function exportModel() {
     let modelType;
     if (dataType === 'color') {
       modelType = 'color';
+    } else if (dataType === 'capacitive') {
+      modelType = 'capacitive';
     } else if (dataType === 'audio') {
       modelType = 'audio';
     } else if (dataType === 'imu-regression') {
@@ -996,9 +998,18 @@ async function downloadModelForArduino() {
       files = generator.generateArduinoLibrary();
 
     } else {
-      // Use standard generator for IMU and Color classification
+      // Use standard generator for IMU, Color, and Capacitive classification
       console.log('   Using ArduinoModelGenerator for standard model');
-      const labels = gestureManager.getAllGestures().map(g => g.name);
+
+      // Get labels from the appropriate gesture manager
+      let labels;
+      if (dataType === 'capacitive') {
+        labels = capacitiveGestureManager.getAllGestures().map(g => g.name);
+      } else {
+        labels = gestureManager.getAllGestures().map(g => g.name);
+      }
+
+      console.log(`   ${dataType} labels:`, labels);
       generator = new ArduinoModelGenerator();
       await generator.convertToTFLite(mlTrainer.model, labels, dataType);
       files = generator.generateArduinoCode();
@@ -1019,6 +1030,8 @@ async function downloadModelForArduino() {
     let modelType;
     if (dataType === 'color') {
       modelType = 'color';
+    } else if (dataType === 'capacitive') {
+      modelType = 'capacitive';
     } else if (dataType === 'audio') {
       modelType = 'audio';
     } else if (dataType === 'imu-regression') {
@@ -1098,12 +1111,15 @@ function startTesting() {
   // Detect data type from training data
   const dataType = mlTrainer.trainingData?.dataType || 'imu';
 
-  // Check if sensor data is streaming for IMU/Color testing
+  // Check if sensor data is streaming for IMU/Color/Capacitive testing
   if (dataType !== 'audio') {
     // Check if we're actually receiving sensor data
     let hasData = false;
     if (dataType === 'color') {
       const buffer = colorDataCollector.getCurrentBuffer();
+      hasData = buffer && buffer.length > 0;
+    } else if (dataType === 'capacitive') {
+      const buffer = capacitiveDataCollector.getCurrentBuffer();
       hasData = buffer && buffer.length > 0;
     } else {
       const buffer = dataCollector.getCurrentBuffer();
@@ -1208,6 +1224,8 @@ async function runPrediction() {
   let currentData;
   if (dataType === 'color') {
     currentData = colorDataCollector.getCurrentBuffer();
+  } else if (dataType === 'capacitive') {
+    currentData = capacitiveDataCollector.getCurrentBuffer();
   } else {
     // IMU or default
     currentData = dataCollector.getCurrentBuffer();
@@ -1235,6 +1253,8 @@ async function runPrediction() {
     // Last resort: defaults based on data type
     if (dataType === 'color') {
       targetSize = 250; // Color: 50 frames × 5 channels (can be 500 for 100 frames)
+    } else if (dataType === 'capacitive') {
+      targetSize = 1200; // Capacitive: 100 frames × 12 electrodes (can be 600 for 50 frames, 2400 for 200 frames)
     } else if (dataType === 'audio') {
       targetSize = 1024; // Audio: common FFT size (will be overridden by actual data)
     } else {
@@ -2373,4 +2393,759 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+});
+
+// ============================================================================
+// CAPACITIVE SENSING UI
+// ============================================================================
+
+let capacitiveDataCollector = null;
+let capacitiveVisualizer = null;
+let capacitiveGestureManager = null;
+
+// Initialize capacitive components
+function initCapacitiveUI() {
+  console.log('🔧 Initializing Capacitive Sensing UI...');
+
+  // Create separate gesture manager for capacitive labels
+  capacitiveGestureManager = new GestureManager();
+
+  // Create data collector
+  capacitiveDataCollector = new CapacitiveDataCollector(bridge, capacitiveGestureManager);
+
+  // Create visualizer
+  capacitiveVisualizer = new CapacitiveVisualizer('capacitive-preview-canvas');
+
+  // Setup event listeners
+  setupCapacitiveEventListeners();
+
+  // Setup modal handlers
+  setupCapacitiveModals();
+
+  console.log('✅ Capacitive Sensing UI initialized');
+}
+
+function setupCapacitiveEventListeners() {
+  // Data collector events
+  capacitiveDataCollector.on('dataUpdate', (values) => {
+    // Update visualizer with latest electrode values
+    capacitiveVisualizer.addFrame(
+      values.e0, values.e1, values.e2, values.e3,
+      values.e4, values.e5, values.e6, values.e7,
+      values.e8, values.e9, values.e10, values.e11
+    );
+  });
+
+  capacitiveDataCollector.on('captureStarted', (data) => {
+    updateCapacitiveStatus('Recording', 'recording');
+    updateCapacitiveCardRecording(data.label, true);
+    capacitiveVisualizer.setCapturing(true);
+
+    // Reduce overlay opacity when capturing starts
+    const overlay = document.getElementById('capacitive-preview-overlay');
+    if (overlay) {
+      overlay.classList.add('capturing');
+    }
+  });
+
+  capacitiveDataCollector.on('frameCollected', (data) => {
+    const progressPct = (data.progress * 100).toFixed(0);
+    document.getElementById('capacitive-progress-fill').style.width = `${progressPct}%`;
+    document.getElementById('capacitive-frame-count').textContent =
+      `${data.framesCollected} / ${data.framesTarget}`;
+  });
+
+  capacitiveDataCollector.on('captureCompleted', (data) => {
+    updateCapacitiveStatus('Ready', 'ready');
+    updateCapacitiveCardRecording(data.label, false);
+    updateCapacitiveCard(data.label);
+    updateCapacitiveTrainingInfo();
+    capacitiveVisualizer.setCapturing(false);
+
+    // Reset progress
+    document.getElementById('capacitive-progress-fill').style.width = '0%';
+    document.getElementById('capacitive-frame-count').textContent = '0 / 100';
+
+    // Restore full overlay when capture completes
+    const overlay = document.getElementById('capacitive-preview-overlay');
+    if (overlay) {
+      overlay.classList.remove('capturing');
+    }
+
+    showNotification(`Sample captured for ${data.label}`, 'success');
+  });
+
+  capacitiveDataCollector.on('captureFailed', (data) => {
+    updateCapacitiveStatus('Error', 'error');
+    capacitiveVisualizer.setCapturing(false);
+
+    // Restore full overlay on failure
+    const overlay = document.getElementById('capacitive-preview-overlay');
+    if (overlay) {
+      overlay.classList.remove('capturing');
+    }
+
+    showNotification(`Capture failed: ${data.error}`, 'error');
+  });
+
+  capacitiveDataCollector.on('captureCancelled', () => {
+    updateCapacitiveStatus('Ready', 'ready');
+    capacitiveVisualizer.setCapturing(false);
+
+    // Restore full overlay when capture is cancelled
+    const overlay = document.getElementById('capacitive-preview-overlay');
+    if (overlay) {
+      overlay.classList.remove('capturing');
+    }
+  });
+
+  // Gesture manager events
+  capacitiveGestureManager.on('gestureAdded', (gesture) => {
+    addCapacitiveCard(gesture);
+    updateCapacitiveTrainingInfo();
+  });
+
+  capacitiveGestureManager.on('gestureRemoved', (gesture) => {
+    const card = document.getElementById(`capacitive-${gesture.name}`);
+    if (card) card.remove();
+    updateCapacitiveTrainingInfo();
+
+    // Show empty state if no labels
+    if (capacitiveGestureManager.getAllGestures().length === 0) {
+      document.getElementById('capacitive-empty-state').style.display = 'block';
+    }
+  });
+
+  capacitiveGestureManager.on('gestureRenamed', (data) => {
+    refreshCapacitiveCards();
+  });
+}
+
+function setupCapacitiveModals() {
+  // Add Label modal
+  const addBtn = document.getElementById('add-capacitive-btn');
+  const modal = document.getElementById('add-capacitive-modal');
+  const closeBtn = document.getElementById('close-capacitive-modal');
+  const cancelBtn = document.getElementById('cancel-capacitive-btn');
+  const createBtn = document.getElementById('create-capacitive-btn');
+  const nameInput = document.getElementById('capacitive-name-input');
+
+  addBtn.addEventListener('click', () => {
+    modal.classList.add('active');
+    nameInput.value = '';
+    nameInput.focus();
+  });
+
+  closeBtn.addEventListener('click', () => {
+    modal.classList.remove('active');
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    modal.classList.remove('active');
+  });
+
+  createBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    if (name) {
+      try {
+        capacitiveGestureManager.addGesture(name);
+        modal.classList.remove('active');
+        showNotification(`Label "${name}" created`, 'success');
+      } catch (error) {
+        showNotification(error.message, 'error');
+      }
+    }
+  });
+
+  // Enter key to create
+  nameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      createBtn.click();
+    }
+  });
+
+  // Rename modal
+  const renameModal = document.getElementById('rename-capacitive-modal');
+  const closeRenameBtn = document.getElementById('close-rename-capacitive-modal');
+  const cancelRenameBtn = document.getElementById('cancel-rename-capacitive-btn');
+  const saveRenameBtn = document.getElementById('save-rename-capacitive-btn');
+  const renameInput = document.getElementById('rename-capacitive-input');
+
+  closeRenameBtn.addEventListener('click', () => {
+    renameModal.classList.remove('active');
+  });
+
+  cancelRenameBtn.addEventListener('click', () => {
+    renameModal.classList.remove('active');
+  });
+
+  saveRenameBtn.addEventListener('click', () => {
+    const newName = renameInput.value.trim();
+    if (newName && currentRenamingCapacitiveLabel) {
+      try {
+        capacitiveGestureManager.renameGesture(currentRenamingCapacitiveLabel, newName);
+        renameModal.classList.remove('active');
+        showNotification(`Label renamed to "${newName}"`, 'success');
+        currentRenamingCapacitiveLabel = null;
+      } catch (error) {
+        showNotification(error.message, 'error');
+      }
+    }
+  });
+
+  // Settings listeners
+  document.getElementById('capacitive-samples-per-class').addEventListener('change', (e) => {
+    capacitiveGestureManager.samplesPerGesture = parseInt(e.target.value);
+    refreshCapacitiveCards();
+  });
+
+  document.getElementById('capacitive-frames-per-sample').addEventListener('change', (e) => {
+    capacitiveDataCollector.setFramesTarget(parseInt(e.target.value));
+    const target = e.target.value;
+    document.getElementById('capacitive-frame-count').textContent = `0 / ${target}`;
+  });
+
+  // Action buttons
+  document.getElementById('load-capacitive-data-btn').addEventListener('click', () => {
+    loadCapacitiveTrainingData();
+  });
+
+  // File input handler for loading data
+  document.getElementById('load-capacitive-data-input').addEventListener('change', handleLoadCapacitiveDataFile);
+
+  document.getElementById('export-capacitive-data-btn').addEventListener('click', () => {
+    exportCapacitiveTrainingData();
+  });
+
+  document.getElementById('train-capacitive-model-btn').addEventListener('click', () => {
+    startCapacitiveTraining();
+  });
+}
+
+// ============================================================================
+// Capacitive Card Management
+// ============================================================================
+
+function addCapacitiveCard(label) {
+  const container = document.getElementById('capacitive-grid');
+
+  // Hide empty state
+  document.getElementById('capacitive-empty-state').style.display = 'none';
+
+  // Create card
+  const card = document.createElement('div');
+  card.className = 'gesture-card';
+  card.id = `capacitive-${label.name}`;
+  card.innerHTML = `
+    <div class="gesture-header">
+      <div class="gesture-name">${label.name}</div>
+      <div class="gesture-menu">
+        <button class="menu-btn" onclick="toggleCapacitiveMenu('${label.name}')">⋮</button>
+        <div class="menu-dropdown" id="capacitive-menu-${label.name}">
+          <button onclick="viewCapacitiveSamples('${label.name}')">View Samples</button>
+          <button onclick="renameCapacitiveLabel('${label.name}')">Rename</button>
+          <button onclick="clearCapacitiveSamples('${label.name}')">Clear Samples</button>
+          <button class="danger" onclick="deleteCapacitiveLabel('${label.name}')">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gesture-info">
+      <div class="info-item">
+        <div class="info-label">Samples</div>
+        <div class="info-value" id="capacitive-samples-${label.name}">0</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Target</div>
+        <div class="info-value">${capacitiveGestureManager.samplesPerGesture}</div>
+      </div>
+    </div>
+
+    <div class="sample-progress">
+      <div class="progress-label">
+        <span>Progress</span>
+        <span id="capacitive-progress-text-${label.name}">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="capacitive-progress-bar-${label.name}" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <div class="gesture-actions">
+      <button onclick="toggleCapacitiveRecording('${label.name}')">
+        📹 Record Sample
+      </button>
+    </div>
+  `;
+
+  // Add click handler for selection
+  card.addEventListener('click', (e) => {
+    // Don't select if clicking on menu or record button
+    if (e.target.closest('.gesture-menu') || e.target.closest('.gesture-actions')) {
+      return;
+    }
+    selectCapacitiveLabel(label.name);
+  });
+
+  container.appendChild(card);
+}
+
+function updateCapacitiveCard(labelName) {
+  const label = capacitiveGestureManager.getGesture(labelName);
+  if (!label) return;
+
+  const sampleCount = label.samples.length;
+  const target = capacitiveGestureManager.samplesPerGesture;
+  const progress = Math.min((sampleCount / target) * 100, 100);
+
+  document.getElementById(`capacitive-samples-${labelName}`).textContent = sampleCount;
+  document.getElementById(`capacitive-progress-text-${labelName}`).textContent = `${progress.toFixed(0)}%`;
+  document.getElementById(`capacitive-progress-bar-${labelName}`).style.width = `${progress}%`;
+}
+
+function refreshCapacitiveCards() {
+  const container = document.getElementById('capacitive-grid');
+  const cards = container.querySelectorAll('.gesture-card');
+  cards.forEach(card => card.remove());
+
+  capacitiveGestureManager.getAllGestures().forEach(label => {
+    addCapacitiveCard(label);
+    updateCapacitiveCard(label.name);
+  });
+
+  if (capacitiveGestureManager.getAllGestures().length > 0) {
+    document.getElementById('capacitive-empty-state').style.display = 'none';
+  }
+}
+
+function updateCapacitiveSelection(name) {
+  document.querySelectorAll('#capacitive-grid .gesture-card').forEach(card => {
+    card.classList.remove('selected');
+  });
+
+  const card = document.getElementById(`capacitive-${name}`);
+  if (card) {
+    card.classList.add('selected');
+  }
+
+  capacitiveDataCollector.selectLabel(name);
+}
+
+function updateCapacitiveCardRecording(name, isRecording) {
+  const card = document.getElementById(`capacitive-${name}`);
+  if (card) {
+    if (isRecording) {
+      card.classList.add('recording');
+    } else {
+      card.classList.remove('recording');
+    }
+  }
+}
+
+// ============================================================================
+// Capacitive Actions (called from HTML onclick)
+// ============================================================================
+
+let currentRenamingCapacitiveLabel = null;
+let currentViewingCapacitiveLabel = null;
+
+window.selectCapacitiveLabel = function(name) {
+  updateCapacitiveSelection(name);
+  showNotification(`Selected: ${name}`, 'info');
+};
+
+window.toggleCapacitiveRecording = function(name) {
+  event.stopPropagation();
+
+  if (capacitiveDataCollector.isCapturing) {
+    capacitiveDataCollector.cancelCapture();
+  } else {
+    selectCapacitiveLabel(name);
+    capacitiveDataCollector.startCapture();
+  }
+};
+
+window.toggleCapacitiveMenu = function(name) {
+  event.stopPropagation();
+
+  const menu = document.getElementById(`capacitive-menu-${name}`);
+  const allMenus = document.querySelectorAll('.menu-dropdown');
+
+  allMenus.forEach(m => {
+    if (m !== menu) m.classList.remove('active');
+  });
+
+  menu.classList.toggle('active');
+};
+
+window.renameCapacitiveLabel = function(name) {
+  currentRenamingCapacitiveLabel = name;
+  document.getElementById('rename-capacitive-input').value = name;
+  document.getElementById('rename-capacitive-modal').classList.add('active');
+  document.getElementById(`capacitive-menu-${name}`).classList.remove('active');
+};
+
+window.clearCapacitiveSamples = function(name) {
+  if (confirm(`Clear all samples for "${name}"?`)) {
+    const label = capacitiveGestureManager.getGesture(name);
+    if (label) {
+      label.samples = [];
+      updateCapacitiveCard(name);
+      updateCapacitiveTrainingInfo();
+      showNotification(`Samples cleared for ${name}`, 'info');
+    }
+  }
+  document.getElementById(`capacitive-menu-${name}`).classList.remove('active');
+};
+
+window.deleteCapacitiveLabel = function(name) {
+  if (confirm(`Delete label "${name}" and all its samples?`)) {
+    capacitiveGestureManager.removeGesture(name);
+    showNotification(`Label "${name}" deleted`, 'info');
+  }
+  document.getElementById(`capacitive-menu-${name}`).classList.remove('active');
+};
+
+window.viewCapacitiveSamples = function(name) {
+  currentViewingCapacitiveLabel = name;
+  openCapacitiveSampleViewerModal(name);
+  document.getElementById(`capacitive-menu-${name}`).classList.remove('active');
+};
+
+function openCapacitiveSampleViewerModal(labelName) {
+  const label = capacitiveGestureManager.getGesture(labelName);
+  if (!label) return;
+
+  // Update modal title
+  document.getElementById('sample-viewer-title').textContent = `Samples: ${labelName}`;
+
+  // Build sample list
+  const samplesList = document.getElementById('samples-list');
+  samplesList.innerHTML = '';
+
+  if (label.samples.length === 0) {
+    samplesList.innerHTML = '<div class="empty-samples">No samples recorded yet</div>';
+  } else {
+    label.samples.forEach((sample, index) => {
+      const sampleCard = createCapacitiveSampleCard(sample, index, labelName);
+      samplesList.appendChild(sampleCard);
+    });
+  }
+
+  // Update sample count in modal
+  document.getElementById('sample-viewer-count').textContent =
+    `${label.samples.length} sample${label.samples.length !== 1 ? 's' : ''}`;
+
+  // Show modal
+  document.getElementById('sample-viewer-modal').classList.add('active');
+}
+
+function createCapacitiveSampleCard(sample, index, labelName) {
+  const card = document.createElement('div');
+  card.className = 'sample-card';
+  card.id = `sample-card-${sample.id || index}`;
+
+  // Format timestamp
+  const timestamp = new Date(sample.timestamp || Date.now());
+  const timeStr = timestamp.toLocaleTimeString();
+
+  // Calculate stats from capacitive data (1200 values = 100 frames × 12 electrodes)
+  const values = sample.data || [];
+  const stats = calculateCapacitiveStats(values);
+
+  // Create a preview showing range across all electrodes
+  const preview = stats ?
+    `12 electrodes, ${values.length / 12} frames, range: ${stats.min.toFixed(3)}-${stats.max.toFixed(3)}` :
+    'No data available';
+
+  card.innerHTML = `
+    <div class="sample-card-header">
+      <div class="sample-number">#${index + 1}</div>
+      <div class="sample-time">${timeStr}</div>
+      <button class="sample-delete-btn" onclick="deleteCapacitiveSampleConfirm('${labelName}', ${index})">
+        🗑️
+      </button>
+    </div>
+    <div class="sample-preview">
+      <strong>Preview:</strong> ${preview}
+    </div>
+    ${stats ? `
+    <div class="sample-stats">
+      <div class="stat-item">
+        <span class="stat-label">Mean:</span>
+        <span class="stat-value">${stats.mean.toFixed(3)}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Std:</span>
+        <span class="stat-value">${stats.std.toFixed(3)}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Range:</span>
+        <span class="stat-value">${stats.min.toFixed(3)} to ${stats.max.toFixed(3)}</span>
+      </div>
+    </div>
+    ` : ''}
+    <div class="sample-type-badge">capacitive</div>
+  `;
+
+  return card;
+}
+
+function calculateCapacitiveStats(values) {
+  if (!values || values.length === 0) return null;
+
+  const sum = values.reduce((a, b) => a + b, 0);
+  const mean = sum / values.length;
+
+  const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length;
+  const std = Math.sqrt(variance);
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  return { mean, std, min, max };
+}
+
+window.deleteCapacitiveSampleConfirm = function(labelName, sampleIndex) {
+  if (confirm(`Delete sample #${sampleIndex + 1}?`)) {
+    const label = capacitiveGestureManager.getGesture(labelName);
+    if (label) {
+      label.samples.splice(sampleIndex, 1);
+      updateCapacitiveCard(labelName);
+      updateCapacitiveTrainingInfo();
+
+      // Refresh the modal
+      openCapacitiveSampleViewerModal(labelName);
+
+      showNotification('Sample deleted', 'info');
+    }
+  }
+};
+
+// ============================================================================
+// Capacitive Export/Import
+// ============================================================================
+
+function loadCapacitiveTrainingData() {
+  // Trigger the hidden file input
+  document.getElementById('load-capacitive-data-input').click();
+}
+
+function handleLoadCapacitiveDataFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    try {
+      const jsonData = JSON.parse(e.target.result);
+
+      // Validate JSON structure
+      if (!jsonData.gestures || !Array.isArray(jsonData.gestures)) {
+        throw new Error('Invalid capacitive training data format: missing gestures array');
+      }
+
+      // Clear existing labels
+      const existingGestures = capacitiveGestureManager.getAllGestures();
+      existingGestures.forEach(g => {
+        capacitiveGestureManager.removeGesture(g.name);
+      });
+
+      // Load labels and samples
+      let totalSamples = 0;
+      jsonData.gestures.forEach(label => {
+        // Add label
+        capacitiveGestureManager.addGesture(label.name);
+
+        // Add samples
+        if (label.samples && Array.isArray(label.samples)) {
+          label.samples.forEach(sampleItem => {
+            // Handle different formats
+            let sampleData;
+
+            if (Array.isArray(sampleItem)) {
+              sampleData = sampleItem;
+            } else if (sampleItem && sampleItem.data && Array.isArray(sampleItem.data)) {
+              sampleData = sampleItem.data;
+            } else {
+              console.warn('⚠️ Skipping invalid sample:', sampleItem);
+              return;
+            }
+
+            // Validate sample length for capacitive data
+            // Accept common capacitive sample sizes: 1200 (100 frames × 12), 600 (50 frames × 12), 2400 (200 frames × 12)
+            // Must be divisible by 12 (12 electrodes)
+            if (sampleData.length % 12 !== 0) {
+              console.warn(`⚠️ Skipping sample with invalid length: ${sampleData.length} (must be divisible by 12)`);
+              return;
+            }
+
+            capacitiveGestureManager.addSample(label.name, sampleData);
+            totalSamples++;
+          });
+        }
+      });
+
+      // Rebuild all capacitive cards with sample counts
+      refreshCapacitiveCards();
+
+      // Update UI after DOM is ready
+      setTimeout(() => {
+        capacitiveGestureManager.getAllGestures().forEach(label => {
+          updateCapacitiveCard(label.name);
+        });
+        updateCapacitiveTrainingInfo();
+      }, 100);
+
+      showNotification(`✅ Loaded ${jsonData.gestures.length} patterns with ${totalSamples} total samples`, 'success');
+      console.log('✅ Capacitive training data loaded successfully');
+
+    } catch (error) {
+      console.error('❌ Failed to load capacitive data:', error);
+      showNotification(`❌ Failed to load data: ${error.message}`, 'error');
+    }
+
+    // Reset file input
+    event.target.value = '';
+  };
+
+  reader.onerror = function() {
+    showNotification('❌ Failed to read file', 'error');
+  };
+
+  reader.readAsText(file);
+}
+
+function exportCapacitiveTrainingData() {
+  try {
+    const data = capacitiveGestureManager.getTrainingData();
+
+    // Update metadata for capacitive data
+    data.metadata.dataType = 'capacitive';
+    data.metadata.dataLength = 1200; // 100 frames × 12 electrodes (default)
+    data.metadata.axes = 12; // 12 electrodes
+    data.metadata.channels = ['e0', 'e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11'];
+    data.metadata.framesPerSample = parseInt(document.getElementById('capacitive-frames-per-sample').value) || 100;
+
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `capacitive-training-data-${Date.now()}.json`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+
+    showNotification('✅ Capacitive training data exported', 'success');
+    console.log('✅ Capacitive data exported successfully');
+
+  } catch (error) {
+    console.error('❌ Export failed:', error);
+    showNotification(`❌ Export failed: ${error.message}`, 'error');
+  }
+}
+
+// ============================================================================
+// Capacitive Model Training
+// ============================================================================
+
+async function startCapacitiveTraining() {
+  try {
+    console.log('🚀 Starting capacitive training...');
+
+    // Validate we have enough data
+    if (!capacitiveGestureManager.isReadyForTraining()) {
+      showNotification('⚠️ Not enough training data. Need at least 2 patterns with sufficient samples.', 'warning');
+      return;
+    }
+
+    // Get learning rate from UI
+    const learningRateInput = document.getElementById('capacitive-learning-rate');
+    const learningRate = learningRateInput ? parseFloat(learningRateInput.value) : 0.001;
+
+    // Get data augmentation setting
+    const augmentationInput = document.getElementById('capacitive-data-augmentation-enabled');
+    const augmentationEnabled = augmentationInput ? augmentationInput.checked : false;
+
+    // Update dataProcessor augmentation setting
+    if (window.dataProcessor) {
+      window.dataProcessor.augmentationEnabled = augmentationEnabled;
+    }
+
+    // Get training configuration
+    const config = {
+      preset: 'balanced',
+      epochs: 50,
+      batchSize: 16,
+      learningRate: learningRate,
+      dataType: 'capacitive', // Important: tells the system this is capacitive data
+    };
+
+    console.log(`📊 Capacitive training config: LR=${learningRate}, Epochs=${config.epochs}, Augmentation=${augmentationEnabled}`);
+
+    // Start training using the existing MLTrainer
+    await mlTrainer.train(capacitiveGestureManager, config);
+
+    console.log('✅ Capacitive model training complete');
+
+  } catch (error) {
+    console.error('❌ Capacitive training failed:', error);
+    showNotification(`❌ Training failed: ${error.message}`, 'error');
+  }
+}
+
+// ============================================================================
+// Capacitive Status Updates
+// ============================================================================
+
+function updateCapacitiveStatus(text, status) {
+  const statusElement = document.getElementById('capacitive-status-text');
+  statusElement.textContent = text;
+
+  // Update class for styling
+  statusElement.className = 'status-text';
+  if (status === 'recording') {
+    statusElement.classList.add('recording');
+  } else if (status === 'error') {
+    statusElement.classList.add('error');
+  }
+}
+
+function updateCapacitiveTrainingInfo() {
+  const labels = capacitiveGestureManager.getAllGestures();
+  const totalSamples = labels.reduce((sum, label) => sum + label.samples.length, 0);
+
+  const infoText = document.getElementById('capacitive-training-info-text');
+  const trainBtn = document.getElementById('train-capacitive-model-btn');
+  const exportBtn = document.getElementById('export-capacitive-data-btn');
+
+  if (labels.length < 2) {
+    infoText.textContent = 'Add at least 2 labels with samples to train';
+    trainBtn.disabled = true;
+    exportBtn.disabled = true;
+  } else if (totalSamples < labels.length * 2) {
+    infoText.textContent = 'Add more samples to each label';
+    trainBtn.disabled = true;
+    exportBtn.disabled = totalSamples === 0;
+  } else {
+    infoText.textContent = `Ready to train with ${totalSamples} samples across ${labels.length} labels`;
+    trainBtn.disabled = false;
+    exportBtn.disabled = false;
+  }
+}
+
+// Initialize capacitive UI when tab is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  // Wait a bit to ensure other components are initialized
+  setTimeout(() => {
+    if (typeof CapacitiveDataCollector !== 'undefined' &&
+        typeof CapacitiveVisualizer !== 'undefined') {
+      initCapacitiveUI();
+    } else {
+      console.warn('⚠️ Capacitive modules not loaded');
+    }
+  }, 100);
 });
