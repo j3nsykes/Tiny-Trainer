@@ -12,6 +12,7 @@ Once the limitations of the app are met, more complex machine learning features 
 
 - **IMU Classification** - Train models using accelerometer and gyroscope data (motion gestures)
 - **Color Classification** - Train models using the APDS9960 color sensor
+- **Capacitive Sensing Classification** - Train models using the MPR121 breakout sensor
 - **Real-time Training** - Train TensorFlow.js models directly in the app
 - **Arduino Export** - Download ready-to-upload Arduino code with your trained model
 - **BLE Connectivity** - Wireless data collection and device management
