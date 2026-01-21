@@ -1,0 +1,54 @@
+name: Build Intel macOS
+
+on:
+  # Trigger on push to main branch
+  push:
+    branches: [ main ]
+  # Trigger on pull request to main
+  pull_request:
+    branches: [ main ]
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+
+jobs:
+  build-intel:
+    # Use macOS 13 for Intel x64 builds
+    # Note: macos-13 is the last Intel runner, macos-14+ are ARM
+    runs-on: macos-13
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js (matches your local version)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'  # Matches your local Node v16.16.0
+          cache: 'npm'
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm ci  # 'npm ci' is like 'npm install' but faster for CI
+
+      # Step 4: Build for Intel (x64)
+      - name: Build Intel macOS app
+        run: npm run build:mac:x64
+        env:
+          # Prevent notarization during CI build (requires Apple credentials)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      # Step 5: Upload the built artifacts (dmg and zip files)
+      - name: Upload Intel build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiny-trainer-intel-${{ github.sha }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          retention-days: 30  # Keep builds for 30 days
+
+      # Step 6: List what was built (for debugging)
+      - name: List build output
+        run: ls -lh dist/
