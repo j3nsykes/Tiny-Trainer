@@ -12,9 +12,9 @@ on:
 
 jobs:
   build-intel:
-    # Use macOS 13 for Intel x64 builds
-    # Note: macos-13 is the last Intel runner, macos-14+ are ARM
-    runs-on: macos-13
+    # Use macOS 15 for Intel x64 builds
+    # Note: macos-15 supports Intel builds with proper arch specification
+    runs-on: macos-15
 
     steps:
       # Step 1: Check out the repository code
