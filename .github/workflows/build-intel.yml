@@ -21,11 +21,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Set up Node.js (matches your local version)
+      # Step 2: Set up Node.js (use Node 18 for TensorFlow.js compatibility)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '16'  # Matches your local Node v16.16.0
+          node-version: '18'  # Required for @tensorflow/tfjs-node and node-addon-api
           cache: 'npm'
 
       # Step 3: Install dependencies
