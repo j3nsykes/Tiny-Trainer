@@ -35,6 +35,10 @@
     animation: pulse 1s infinite;
 }
 
+.gesture-card:has(.menu-dropdown.active) {
+    z-index: 1001;
+}
+
 @keyframes pulse {
     0%, 100% {
         box-shadow: 0 0 0 0 rgba(255, 64, 129, 0.4);
@@ -61,6 +65,11 @@
 
 .gesture-menu {
     position: relative;
+    z-index: 1;
+}
+
+.gesture-menu:has(.menu-dropdown.active) {
+    z-index: 1001;
 }
 
 .menu-btn {
@@ -90,7 +99,7 @@
     padding: 4px 0;
     min-width: 150px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    z-index: 10;
+    z-index: 1000;
     display: none;
 }
 

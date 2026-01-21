@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gesture Prediction - P5.js Example</title>
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- P5.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@2.1.1/lib/p5.min.js"></script>
+
+    <!-- Socket.IO Client (from the Serial Bridge server) -->
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+
+    <!-- Serial Bridge Client Library -->
+    <script src="http://localhost:3000/serial-bridge.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎯 Gesture Prediction Visualizer</h1>
+        <p>Real-time gesture recognition from Arduino + Tiny Trainer</p>
+      </header>
+
+      <div id="canvas-container"></div>
+
+      <div class="info-panel">
+        <h3>How it works:</h3>
+        <ul>
+          <li>Train your Tiny Trainer model with gestures (circle, figure8, etc.)</li>
+          <li>Upload the sketch to Arduino with sensor streaming</li>
+          <li>Run Serial Bridge: <code>npm start</code></li>
+          <li>Perform gestures and watch the visualization!</li>
+        </ul>
+
+        <h3>Device Configuration:</h3>
+        <p>This sketch expects predictions from <strong>arduino_1</strong></p>
+        <p>To change the device name, edit the <code>bridge.onData('arduino_1', ...)</code> line in sketch.js</p>
+      </div>
+    </div>
+
+    <script src="sketch.js"></script>
+  </body>
+</html>

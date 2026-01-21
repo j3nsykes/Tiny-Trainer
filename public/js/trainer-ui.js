@@ -148,6 +148,18 @@ function setupEventListeners() {
     const enabled = e.target.checked;
     dataProcessor.setAugmentation(enabled);
   });
+
+  // Auto-capture toggle
+  document.getElementById('auto-capture-enabled').addEventListener('change', (e) => {
+    const enabled = e.target.checked;
+    if (enabled) {
+      dataCollector.enableAutoCapture();
+      console.log('✅ Auto-capture enabled by user');
+    } else {
+      dataCollector.disableAutoCapture();
+      console.log('🛑 Auto-capture disabled by user');
+    }
+  });
   
   // Training actions
   document.getElementById('load-data-btn').addEventListener('click', loadTrainingData);
@@ -262,6 +274,10 @@ function setupGestureManagerListeners() {
   
   gestureManager.on('gestureSelected', (name) => {
     updateGestureSelection(name);
+  });
+
+  gestureManager.on('gestureDeselected', (name) => {
+    updateGestureDeselection(name);
   });
 }
 
@@ -432,15 +448,26 @@ function rebuildGestureCards() {
   // Clear existing cards
   const container = document.getElementById('gestures-grid');
   if (!container) return;
-  
+
   container.innerHTML = '';
-  
+
+  // Remember current selection
+  const currentSelection = gestureManager.selectedGesture;
+
   // Add card for each gesture
   gestureManager.getAllGestures().forEach(gesture => {
     addGestureCard(gesture);
     // Update card with current sample count
     updateGestureCard(gesture.name);
   });
+
+  // Restore selection state visually (without triggering the event)
+  if (currentSelection) {
+    const card = document.getElementById(`gesture-${currentSelection}`);
+    if (card) {
+      card.classList.add('selected');
+    }
+  }
 }
 
 function updateGestureSelection(name) {
@@ -448,15 +475,26 @@ function updateGestureSelection(name) {
   document.querySelectorAll('.gesture-card').forEach(card => {
     card.classList.remove('selected');
   });
-  
+
   // Add selected class to current
   const card = document.getElementById(`gesture-${name}`);
   if (card) {
     card.classList.add('selected');
   }
-  
+
   // Set data collector gesture
   dataCollector.setGesture(name);
+}
+
+function updateGestureDeselection(name) {
+  // Remove selected class from the card
+  const card = document.getElementById(`gesture-${name}`);
+  if (card) {
+    card.classList.remove('selected');
+  }
+
+  // Clear data collector gesture
+  dataCollector.setGesture(null);
 }
 
 function updateGestureCardRecording(name, isRecording) {
@@ -475,19 +513,22 @@ function updateGestureCardRecording(name, isRecording) {
 // ============================================================================
 
 window.selectGesture = function(name) {
+  console.log('selectGesture called with:', name);
   gestureManager.selectGesture(name);
 };
 
 window.recordGesture = function(name) {
-  // Select gesture
-  gestureManager.selectGesture(name);
-  
+  // Ensure gesture is selected (don't toggle if already selected)
+  if (gestureManager.selectedGesture !== name) {
+    gestureManager.selectGesture(name);
+  }
+
   // Check if already full
   if (gestureManager.isSamplesFull(name)) {
     showNotification(`"${name}" already has maximum samples. Delete some samples first.`, 'warning');
     return;
   }
-  
+
   // Trigger capture
   dataCollector.manualTrigger();
 };
@@ -738,15 +779,39 @@ function handleLoadDataFile(event) {
               return; // Skip this sample
             }
             
-            // Validate sample length (should be 900 for 100 frames × 9 axes)
-            if (sampleData.length !== 900) {
-              console.warn(`⚠️ Skipping sample with invalid length: ${sampleData.length} (expected 900)`);
+            // Validate sample length - accept multiple valid formats
+            // IMU: 900 (100 frames × 9 axes), or variable frame counts (50-200 frames)
+            // Color: 250 (50 frames × 5), 500 (100 frames × 5)
+            // Capacitive: 1200 (100 frames × 12), 600 (50 frames × 12), 2400 (200 frames × 12)
+            const validLengths = [
+              450, 900, 1800,           // IMU: 50, 100, 200 frames × 9 axes
+              250, 500, 1000,           // Color: 50, 100, 200 frames × 5 channels
+              600, 1200, 2400,          // Capacitive: 50, 100, 200 frames × 12 electrodes
+            ];
+
+            // Check if length is valid OR is a multiple of 9 (IMU), 5 (Color), or 12 (Capacitive)
+            const isValidIMU = sampleData.length % 9 === 0 && sampleData.length >= 450 && sampleData.length <= 1800;
+            const isValidColor = sampleData.length % 5 === 0 && sampleData.length >= 250 && sampleData.length <= 1000;
+            const isValidCapacitive = sampleData.length % 12 === 0 && sampleData.length >= 600 && sampleData.length <= 2400;
+
+            if (!validLengths.includes(sampleData.length) && !isValidIMU && !isValidColor && !isValidCapacitive) {
+              console.warn(`⚠️ Skipping sample with unexpected length: ${sampleData.length}`);
+              console.warn('Expected lengths: IMU (450-1800), Color (250-1000), Capacitive (600-2400)');
               return;
             }
-            
-            // Add sample to gesture manager
-            // gestureManager.addSample expects just the data array
-            gestureManager.addSample(gesture.name, sampleData);
+
+            // Determine data type from sample length if not specified
+            let dataType = sampleItem.dataType || 'imu';
+            if (!sampleItem.dataType) {
+              if (isValidColor) {
+                dataType = 'color';
+              } else if (isValidCapacitive) {
+                dataType = 'capacitive';
+              }
+            }
+
+            // Add sample to gesture manager with metadata
+            gestureManager.addSample(gesture.name, sampleData, { dataType });
             totalSamples++;
           });
         }
@@ -766,11 +831,17 @@ function handleLoadDataFile(event) {
       
     } catch (error) {
       console.error('❌ Failed to load training data:', error);
+      console.error('Error stack:', error.stack);
+      console.error('File info:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
       toast.error(`Failed to load: ${error.message}`, {
         title: 'Load Error',
         duration: 5000
       });
-      alert(`Failed to load training data: ${error.message}`);
+      alert(`Failed to load training data: ${error.message}\n\nCheck console for details.`);
     }
     
     // Reset file input
@@ -837,6 +908,11 @@ function exportRegressionData() {
 async function startTraining() {
   try {
     console.log('🚀 Starting training...');
+
+    // Temporarily disable auto-capture during training to prevent accidental sample collection
+    // Store the user's preference to restore it after training
+    window._autoCaptureBeforeTraining = dataCollector.autoCaptureEnabled;
+    dataCollector.disableAutoCapture();
 
     // Check if we're in regression mode
     const mode = regressionUI.getMode();
@@ -909,6 +985,20 @@ function closeTrainingModal() {
   const modal = document.getElementById('training-modal');
   if (modal) {
     modal.classList.remove('active');
+  }
+
+  // Restore auto-capture to user's preference (before training started)
+  if (window._autoCaptureBeforeTraining !== undefined) {
+    if (window._autoCaptureBeforeTraining) {
+      dataCollector.enableAutoCapture();
+    }
+    delete window._autoCaptureBeforeTraining;
+  } else {
+    // Fallback: check the toggle state
+    const toggle = document.getElementById('auto-capture-enabled');
+    if (toggle && toggle.checked) {
+      dataCollector.enableAutoCapture();
+    }
   }
 }
 

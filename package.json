@@ -1,7 +1,7 @@
 {
   "name": "tiny-trainer",
   "productName": "Tiny Trainer",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Train TensorFlow Lite models for Arduino Nano BLE Sense wirelessly",
   "main": "main.js",
   "author": {
@@ -18,6 +18,8 @@
     "dev": "NODE_ENV=development electron .",
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
+    "build:mac:arm64": "electron-builder --mac --arm64",
+    "build:mac:x64": "arch -x86_64 electron-builder --mac --x64",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
     "rebuild": "electron-rebuild",
@@ -45,6 +47,10 @@
       "output": "dist",
       "buildResources": "assets"
     },
+    "asarUnpack": [
+      "node_modules/@abandonware/noble/**/*",
+      "node_modules/@tensorflow/tfjs-node/**/*"
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -60,31 +66,27 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "icon": "assets/icon.icns",
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": "arm64"
         },
         {
           "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": "arm64"
         }
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "entitlements.mac.plist",
-      "entitlementsInherit": "entitlements.mac.plist"
+      "entitlementsInherit": "entitlements.mac.plist",
+      "extraResources": [],
+      "electronLanguages": [
+        "en"
+      ]
     },
     "dmg": {
       "title": "${productName} ${version}",
-      "icon": "assets/icon.icns",
       "contents": [
         {
           "x": 130,
@@ -112,8 +114,7 @@
             "x64"
           ]
         }
-      ],
-      "icon": "assets/icon.ico"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -129,7 +130,6 @@
         "deb"
       ],
       "category": "Development",
-      "icon": "assets/icon.png",
       "desktop": {
         "Name": "Tiny Trainer",
         "Comment": "Train TensorFlow Lite models for Arduino",

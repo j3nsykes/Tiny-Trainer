@@ -9,22 +9,25 @@ class DataCollector {
   constructor(bridge, gestureManager) {
     this.bridge = bridge;
     this.gestureManager = gestureManager;
-    
+
     // Capture state
     this.isCapturing = false;
     this.currentSample = [];
     this.currentGesture = null;
     this.framesCollected = 0;
     this.framesTarget = 100;
-    
+
     // Rolling buffer for testing (last 100 frames)
     this.currentBuffer = [];
     this.maxBufferSize = 100 * 9; // 100 frames × 9 axes
-    
+
     // Capture settings (matching TMT defaults)
     this.accelerationThreshold = 0.167; // Minimum movement to trigger
     this.captureDelay = 125; // ms between captures
     this.lastCaptureTimestamp = 0;
+
+    // Auto-capture control (can be disabled during training/testing)
+    this.autoCaptureEnabled = true;
     
     // Listeners
     this.listeners = {
@@ -101,6 +104,11 @@ class DataCollector {
   // ========================================================================
 
   checkForMotion(ax, ay, az, gx, gy, gz, mx, my, mz) {
+    // Don't auto-trigger if auto-capture is disabled
+    if (!this.autoCaptureEnabled) {
+      return;
+    }
+
     // Don't auto-trigger if no gesture selected
     if (!this.currentGesture) {
       return;
@@ -113,7 +121,7 @@ class DataCollector {
     }
 
     // Calculate average acceleration (including magnetometer for motion detection)
-    const aSum = (Math.abs(ax) + Math.abs(ay) + Math.abs(az) + 
+    const aSum = (Math.abs(ax) + Math.abs(ay) + Math.abs(az) +
                   Math.abs(gx) + Math.abs(gy) + Math.abs(gz)) / 6.0;
 
     // Check if motion exceeds threshold
@@ -238,6 +246,16 @@ class DataCollector {
   setCaptureDelay(ms) {
     this.captureDelay = Math.max(50, Math.min(1000, ms));
     console.log('✅ Capture delay set to:', this.captureDelay, 'ms');
+  }
+
+  enableAutoCapture() {
+    this.autoCaptureEnabled = true;
+    console.log('✅ Auto-capture enabled');
+  }
+
+  disableAutoCapture() {
+    this.autoCaptureEnabled = false;
+    console.log('🛑 Auto-capture disabled');
   }
 
   // ========================================================================

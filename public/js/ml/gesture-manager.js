@@ -18,6 +18,7 @@ class GestureManager {
       sampleAdded: [],
       sampleRemoved: [],
       gestureSelected: [],
+      gestureDeselected: [],
     };
   }
 
@@ -114,9 +115,16 @@ class GestureManager {
   }
 
   selectGesture(name) {
-    this.selectedGesture = name;
-    this.emit('gestureSelected', name);
-    console.log('✅ Gesture selected:', name);
+    // If clicking the same gesture, deselect it
+    if (this.selectedGesture === name) {
+      this.selectedGesture = null;
+      this.emit('gestureDeselected', name);
+      console.log('✅ Gesture deselected:', name);
+    } else {
+      this.selectedGesture = name;
+      this.emit('gestureSelected', name);
+      console.log('✅ Gesture selected:', name);
+    }
   }
 
   getSelectedGesture() {
