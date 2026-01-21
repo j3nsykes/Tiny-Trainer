@@ -70,9 +70,13 @@ Since this app is not signed by Apple, you may see a warning that it "is damaged
 1. Move the app to your **Applications** folder.
 2. Open Terminal and run:
    ```bash
-   xattr -cr /Applications/Tiny Trainer.app
+   xattr -cr /Applications/Tiny\ Trainer.app
    ```
-3. You can now open the app normally.
+3. Depending on your user profile, you may need to authorsie the above command with your administraor password by running the following command instead
+   ```bash
+   sudo xattr -cr /Applications/Tiny\ Trainer.app
+   ```
+4. You can now open the app normally.
 
 #### Option B: Run from Source
 
