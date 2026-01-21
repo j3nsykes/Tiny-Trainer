@@ -34,10 +34,12 @@ jobs:
 
       # Step 4: Build for Intel (x64)
       - name: Build Intel macOS app
-        run: arch -x86_64 electron-builder --mac --x64 --publish never
+        run: npm run build:mac:x64
         env:
           # Prevent notarization during CI build (requires Apple credentials)
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Use GitHub token from repository secrets
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: true
 
       # Step 5: Upload the built artifacts (dmg and zip files)
